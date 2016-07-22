@@ -13,6 +13,8 @@ MessageBus.configure(backend: :memory)
 $files = Concurrent::Map.new
 scheduler = Rufus::Scheduler.new
 
+# Cleanup old files by checking to see
+# if they're older than 6 hours
 def cleanup_old_files
   to_delete = []
   $files.each_key do |id|
@@ -59,14 +61,17 @@ class Application < Sinatra::Base
     html
   end
 
+  # Light theme
   get '/light' do
     render 'index'
   end
 
+  # Dark theme
   get '/dark' do
     render('index').gsub(*replacements)
   end
 
+  # Get a fanfic
   get '/get' do
     html = render 'download'
     html.gsub!(*replacements) if params[:style] == 'dark'
@@ -75,6 +80,7 @@ class Application < Sinatra::Base
 
   storyid_regexp = Regexp.new('fanfiction.net/s/(\d+)', true)
 
+  # The real guts of the fetcher
   post '/get' do
     id = params[:id]
     url = params[:url]
@@ -110,6 +116,7 @@ class Application < Sinatra::Base
     "OK"
   end
 
+  # Download the generated file
   get '/file/:id' do |id|
     file = $files[id]
     begin

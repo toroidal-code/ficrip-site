@@ -17,7 +17,7 @@
          urlParams[decode(match[1])] = decode(match[2]);
   })();
 
-  $(function(){
+  window.onload = function(){
     MessageBus.subscribe('/progress', function(msg) {
       console.log(msg);
       if (msg.id && msg.id == MessageBus.clientId) {
@@ -33,5 +33,5 @@
       }
     });
     $.post('/get', { url: urlParams['url'], id: MessageBus.clientId }, null, 'json')
-  });
+  };
 
