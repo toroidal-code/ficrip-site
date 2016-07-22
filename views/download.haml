@@ -1,0 +1,37 @@
+.row
+  %br
+  .progress.grey.lighten-3
+    #progress.determinate.black{style: 'width: 0%'}
+
+:javascript
+  var urlParams;
+  (window.onpopstate = function () {
+      var match,
+          pl     = /\+/g,  // Regex for replacing addition symbol with a space
+          search = /([^&=]+)=?([^&]*)/g,
+          decode = function (s) { return decodeURIComponent(s.replace(pl, " ")); },
+          query  = window.location.search.substring(1);
+
+      urlParams = {};
+      while (match = search.exec(query))
+         urlParams[decode(match[1])] = decode(match[2]);
+  })();
+
+  $(function(){
+    MessageBus.subscribe('/progress', function(msg) {
+      console.log(msg);
+      if (msg.id && msg.id == MessageBus.clientId) {
+        if (msg.message) {
+          $('.progress').replaceWith(msg.message);
+        } else if (msg.progress) {
+          $('#progress').css('width', msg.progress);
+        } else if (msg.progress === null) {
+          $('#progress').removeClass('determinate').addClass('indeterminate');
+        } else if (msg.url) {
+          location = msg.url
+        }
+      }
+    });
+    $.post('/get', { url: urlParams['url'], id: MessageBus.clientId }, null, 'json')
+  });
+

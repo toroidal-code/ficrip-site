@@ -1,14 +1,9 @@
-.container.valign
-  %h1
-    %strong
-      = link_to 'ficrip', 'https://github.com/toroidal-code/ficrip', class: 'black-text'
-  %h5.thin.black-text n. an opinionated fanfiction.net downloader
-  .row
-    = form_tag '/get', class: 'col s12', method: 'get' do
-      .row
-        .input-field.col.s12.m10.l10
-          = url_field_tag :url, value: params[:url], placeholder: 'Story URL', autofocus: true, class: 'col s12'
-        .input-field.col.s12.m2.l2
-          %button.btn-large.tooltipped.waves-effect.waves-light.col.s12.black.white-text{'data-delay' => '50', 'data-position' => 'bottom', 'data-tooltip' => 'Download EPUB'}
-
-            %i.zmdi.zmdi-cloud-download
+.row
+  = form_tag '/get', class: 'col s12', method: :get do
+    = hidden_field_tag :style, value: 'light'
+    .row
+      .input-field.col.s12.m10.l10
+        = url_field_tag :url, value: params[:url], placeholder: 'Story URL', autofocus: true, class: 'col s12 black-text'
+      .input-field.col.s12.m2.l2
+        %button.btn-large.tooltipped.waves-effect.waves-light.col.s12.black.white-text{'data-delay' => '50', 'data-position' => 'bottom', 'data-tooltip' => 'Download EPUB'}
+          %i.zmdi.zmdi-cloud-download

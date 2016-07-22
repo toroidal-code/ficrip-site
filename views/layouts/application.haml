@@ -9,6 +9,9 @@
     %link{href: "https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.6/css/materialize.min.css", media: 'screen,projection', rel: 'stylesheet', type: 'text/css'}
     / Let browser know website is optimized for mobile
     %meta{content: 'width=device-width, initial-scale=1.0', name: 'viewport'}
+    / Import jQuery before materialize.js
+    %script{src: 'https://code.jquery.com/jquery-2.1.1.min.js', type: 'text/javascript'}
+    = javascript_include_tag 'message-bus'
     :css
       .input-field > input[type=url]:focus:not([readonly]) {
         border-bottom: 1px solid black;
@@ -26,12 +29,16 @@
       .material-tooltip { color: white; }
 
   %body.white
-    %main.valign-wrapper= yield
+    %main.valign-wrapper
+      .container.valign
+        %h1
+          %strong
+            = link_to 'ficrip', 'https://github.com/toroidal-code/ficrip', class: 'black-text'
+        %h5.thin.black-text n. an opinionated fanfiction.net downloader
+        = yield
     .bottom-spacer
     %footer.page-footer.white
       .footer-copyright.white
         .container.center-align
           = link_to 'by katherine whitlock', 'https://github.com/toroidal-code', class: 'grey-text'
-    / Import jQuery before materialize.js
-    %script{src: 'https://code.jquery.com/jquery-2.1.1.min.js', type: 'text/javascript'}
     %script{src: 'https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.6/js/materialize.min.js', type: 'text/javascript'}
