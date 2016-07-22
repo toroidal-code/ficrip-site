@@ -1,9 +1,10 @@
 GIT
   remote: git://github.com/toroidal-code/ficrip.git
-  revision: 6a21114cf8947ebe7aa21b483646713ebe0d982d
+  revision: 09e6341144ba21c874d1bfca853dc6a2982e9659
   branch: master
   specs:
     ficrip (0.0.1)
+      chronic_duration
       contracts (~> 0.14)
       fastimage (~> 1.8)
       gepub (= 0.7.0beta3)
@@ -22,6 +23,8 @@ GEM
       thread_safe (~> 0.3, >= 0.3.4)
       tzinfo (~> 1.1)
     addressable (2.3.8)
+    chronic_duration (0.10.6)
+      numerizer (~> 0.1.1)
     concurrent-ruby (1.0.2)
     concurrent-ruby-ext (1.0.2)
       concurrent-ruby (~> 1.0.2)
@@ -40,9 +43,11 @@ GEM
       rack (>= 1.1.3)
     mini_portile2 (2.1.0)
     minitest (5.9.0)
+    newrelic_rpm (3.16.0.318)
     nokogiri (1.6.8)
       mini_portile2 (~> 2.1.0)
       pkg-config (~> 1.1.7)
+    numerizer (0.1.1)
     padrino-helpers (0.13.2)
       i18n (~> 0.6, >= 0.6.7)
       padrino-support (= 0.13.2)
@@ -78,6 +83,7 @@ DEPENDENCIES
   ficrip!
   haml (~> 4.0.7)
   message_bus (~> 2.0.1)
+  newrelic_rpm
   padrino-helpers (~> 0.13)
   puma
   rack (= 1.5.2)

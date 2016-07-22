@@ -1,4 +1,5 @@
 require 'sinatra/base'
+# require 'newrelic_rpm'
 require 'padrino-helpers'
 require 'message_bus'
 require 'rufus-scheduler'
@@ -9,9 +10,9 @@ require 'json'
 require 'ficrip'
 
 MessageBus.configure(backend: :memory)
+MessageBus.long_polling_interval = 59000
 
-$files    = Concurrent::Map.new
-scheduler = Rufus::Scheduler.new
+$files = Concurrent::Map.new
 
 # Cleanup old files by checking to see
 # if they're older than 6 hours
@@ -31,9 +32,13 @@ end
 
 # Every two hours, clean up the leftover tempfiles that
 # haven't already been GC'ed
-scheduler.every '2h' do
-  cleanup_old_files
+if $scheduler_thread
+  scheduler = Rufus::Scheduler.new
+  scheduler.every '2h' do
+    cleanup_old_files
+  end
 end
+
 
 class Application < Sinatra::Base
   register Padrino::Helpers
@@ -92,7 +97,7 @@ class Application < Sinatra::Base
       MessageBus.publish '/progress', { id: id, message: "Error! \"#{url}\" isn't a valid story URL." }
     end
 
-    fic = begin
+    fic     = begin
       Ficrip.fetch storyid
     rescue
       MessageBus.publish '/progress', { id: id, message: "Error! There is no fic with id #{storyid}." }
@@ -105,7 +110,7 @@ class Application < Sinatra::Base
         fetched += 1
         percent = ((fetched / fic.chapters.count.to_f) * 100).to_i
         MessageBus.publish '/progress', { id: id, progress: "#{percent}%" }
-        sleep 1 # poor man's rate limiter
+        sleep .5 # poor man's rate limiter
       })
 
       # Switch to indeterminate
