@@ -19,7 +19,8 @@ def cleanup_old_files
   to_delete = []
   $files.each_key do |id|
     if (Time.now - (6 * 60 * 60)) > $files[id][:time]
-      $files[id][:tempfile].close!
+      $files[id][:tempfile].close
+      $files[id][:tempfile].unlink
       to_delete << id
     end
   end
@@ -112,7 +113,7 @@ class Application < Sinatra::Base
 
       filename = "#{fic.author} - #{fic.title}.epub"
 
-      temp = Tempfile.open(filename, encoding: 'ascii-8bit')
+      temp = Tempfile.new(filename)
 
       epub.cleanup
       Zip::OutputStream::write_buffer(temp) { |f| epub.write_to_epub_container f }
@@ -131,8 +132,7 @@ class Application < Sinatra::Base
     begin
       send_file file[:tempfile].path, filename: file[:filename], type: 'application/epub+zip'
     ensure
-      file[:tempfile].close!
-      $files.delete id
+      file[:tempfile].close
       MessageBus.publish '/progress', { id: id, url: '/' }
     end
   end
