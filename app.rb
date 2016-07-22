@@ -10,7 +10,7 @@ require 'ficrip'
 
 MessageBus.configure(backend: :memory)
 
-$files = Concurrent::Map.new
+$files    = Concurrent::Map.new
 scheduler = Rufus::Scheduler.new
 
 # Cleanup old files by checking to see
@@ -51,8 +51,8 @@ class Application < Sinatra::Base
   end
 
   replacements = [/(white|black|waves-light|light|dark)/,
-                  { 'white' => 'black', 'black' => 'white',
-                    'light' => 'dark', 'dark'=>'light',
+                  { 'white'       => 'black', 'black' => 'white',
+                    'light'       => 'dark', 'dark' => 'light',
                     'waves-light' => '' }]
 
   get '/' do
@@ -82,12 +82,22 @@ class Application < Sinatra::Base
 
   # The real guts of the fetcher
   post '/get' do
-    id = params[:id]
+    id  = params[:id]
     url = params[:url]
 
+    storyid = begin
+      Integer url.match(storyid_regexp)[1]
+    rescue
+      MessageBus.publish '/progress', { id: id, message: "Error! \"#{url}\" isn't a valid story URL." }
+    end
+
+    fic = begin
+      Ficrip.fetch storyid
+    rescue
+      MessageBus.publish '/progress', { id: id, message: "Error! There is no fic with id #{storyid}." }
+    end if storyid
+
     begin
-      storyid = Integer url.match(storyid_regexp)[1]
-      fic = Ficrip.fetch storyid
       fetched = 0
 
       epub = fic.bind(version: 2, callback: lambda {
@@ -105,15 +115,14 @@ class Application < Sinatra::Base
       temp = Tempfile.open(filename, encoding: 'ascii-8bit')
 
       epub.cleanup
-      Zip::OutputStream::write_buffer(temp)  { |f| epub.write_to_epub_container f }
+      Zip::OutputStream::write_buffer(temp) { |f| epub.write_to_epub_container f }
 
       $files[id] = Concurrent::Hash[filename: filename, tempfile: temp, time: Time.now]
       MessageBus.publish '/progress', { id: id, url: "/file/#{id}" }
     rescue Exception => ex
       puts "An error of type #{ex.class} happened, message is #{ex.message}"
-      MessageBus.publish '/progress', { id: id, message: 'Error! Check your URL.' }
-    end
-    "OK"
+    end if fic
+    'OK'
   end
 
   # Download the generated file
@@ -126,5 +135,19 @@ class Application < Sinatra::Base
       $files.delete id
       MessageBus.publish '/progress', { id: id, url: '/' }
     end
+  end
+
+  not_found do
+    status 404
+    html = render 'errors/404', layout: :error
+    html.gsub!(*replacements) if [true, false].sample
+    html
+  end
+
+  error Exception do
+    status 500
+    html = render 'errors/500', layout: :error
+    html.gsub!(*replacements) if [true, false].sample
+    html
   end
 end

@@ -1,4 +1,4 @@
-.row
+.row.black-text
   %br
   .progress.grey.lighten-3
     #progress.determinate.black{style: 'width: 0%'}
@@ -22,7 +22,7 @@
       console.log(msg);
       if (msg.id && msg.id == MessageBus.clientId) {
         if (msg.message) {
-          $('.progress').replaceWith(msg.message);
+          $('.progress').replaceWith('<div class="center" style="font-weight:300">' + msg.message + '</div>');
         } else if (msg.progress) {
           $('#progress').css('width', msg.progress);
         } else if (msg.progress === null) {
