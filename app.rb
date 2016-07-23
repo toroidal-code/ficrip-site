@@ -3,26 +3,25 @@ require 'newrelic_rpm'
 require 'padrino-helpers'
 require 'rufus-scheduler'
 require 'concurrent'
+require 'hamster/hash'
 
 require 'haml'
 require 'slim'
 require 'oj_mimic_json'
 require 'ficrip'
 
-$files = Concurrent::Map.new
+$files = Concurrent::Hash.new
 
 # Cleanup old files by checking to see
 # if they're older than 6 hours
 def cleanup_old_files
-  to_delete = []
   $files.each_key do |id|
     if (Time.now - (6 * 60 * 60)) > $files[id][:time]
       $files[id][:tempfile].close
       $files[id][:tempfile].unlink
-      to_delete << id
+      $files.delete k
     end
   end
-  to_delete.each { |k| $files.delete k }
 rescue => e
   p e
 end
@@ -36,7 +35,9 @@ if $scheduler_thread
   end
 end
 
-
+# This is a simple little helper
+# module for properly formatting
+# Server-Sent Event messages
 module SSE
   def self.data(obj)
     "data: #{obj}\n\n"
@@ -49,6 +50,7 @@ module SSE
   end
 end
 
+# The core of the web application
 class Application < Sinatra::Base
   register Padrino::Helpers
 
@@ -64,11 +66,13 @@ class Application < Sinatra::Base
     set :server, :puma
   end
 
+  # The source-to-source transformations to switch themes
   replacements = [/(white|black|waves-light|light|dark)/,
                   { 'white'       => 'black', 'black' => 'white',
                     'light'       => 'dark', 'dark' => 'light',
                     'waves-light' => '' }]
 
+  # The index page
   get '/' do
     html = render 'index', layout: :main
     [true, false].sample ? html.gsub(*replacements) : html
@@ -84,13 +88,16 @@ class Application < Sinatra::Base
     render('index', layout: :main).gsub(*replacements)
   end
 
-  # Get a fanfic
+  # Get a fanfic.
+  # Takes two query params: 'style' and 'url'
+  # 'url' is, obviously, the fanfiction.net story's URL
   get '/get' do
     halt 403, render('errors/403') unless params[:url]
     html = render 'download', layout: :main
     params[:style] == 'dark' ? html.gsub(*replacements) : html
   end
 
+  # Regexp to extract ff.net storyid from the URL
   storyid_regexp = Regexp.new('fanfiction.net/s/(\d+)', true)
 
   # The real guts of the fetcher
@@ -138,37 +145,51 @@ class Application < Sinatra::Base
           es.close
         end
 
-        $files[id] = Concurrent::Hash[filename: filename, tempfile: temp, time: Time.now]
-        puts $files[id]
+        $files[id] = Hamster::Hash[filename: filename, tempfile: temp, time: Time.now]
+
+        query = URI.encode_www_form([[:filename, filename],
+                                     [:path, temp.path],
+                                     [:id, id]])
+
         out << SSE.event(:progress, "100%")
-        out << SSE.event(:url, "/file/#{id}")
+        out << SSE.event(:url, "/file?#{query}")
       rescue Exception => ex
         puts "An error of type #{ex.class} happened, message is #{ex.message}"
       end if fic
-
       out << SSE.event(:close, true)
     end
   end
 
-    # Download the generated file
-  get '/file/:id' do |id|
-    file = $files[id]
-    halt 404, render('errors/404') unless file
+  # Download the generated file
+  get '/file' do
+    halt 403, render('errors/403') unless params[:path] && params[:id] && params[:filename]
+    id = params[:id]
+
     begin
-      #File.read(file[:tempfile].path)
-      send_file file[:tempfile].path, filename: file[:filename], type: 'application/epub+zip', disposition: 'attachement'
+      send_file params[:path], filename: params[:filename], type: 'application/epub+zip'
     ensure
-      file[:tempfile].close
-      $files.delete id
+      file = $files[id]
+      file[:tempfile].close if file
+      $files.delete id if file
     end
   end
 
+  # Fancy adapter for fanfiction.net's URLs
+  get '/s/:id/?:ch?/?:title?/?' do
+    style = ['light', 'dark'].sample
+    query = URI.encode_www_form([[:style, style],
+                                 [:url, "https://fanfiction.net/s/#{params[:id]}"]])
+    redirect to("/get?#{query}")
+  end
+
+  # 404 Page
   not_found do
     status 404
     html = render 'errors/404'
     [true, false].sample ? html.gsub!(*replacements) : html
   end
 
+  # 500 Page
   error Exception do
     status 500
     html = render 'errors/500'
