@@ -102,7 +102,9 @@ class Application < Sinatra::Base
 
   # The real guts of the fetcher
   get '/generate', provides: 'text/event-stream' do
-    id = params[:clientId]
+    halt 403, render('errors/403') unless params[:url] && params[:clientId]
+
+    id  = params[:clientId]
     url = params[:url]
 
     stream do |out|
@@ -119,26 +121,26 @@ class Application < Sinatra::Base
       end if storyid
 
       begin
+        # Update the download page with title/author information
         out << SSE.event(:info, {
-            title: link_to(fic.title, fic.url),
+            title:  link_to(fic.title, fic.url),
             author: link_to(fic.author, fic.author_url)
         }.to_json)
 
-        fetched = 0
-
-        epub = fic.bind(version: 2, callback: lambda { # |fetched|
-          fetched += 1
-          percent = ((fetched / fic.chapters.count.to_f) * 100).to_i
-          out << SSE.event(:progress, "#{percent}%")
+        # Process the story into an EPUB2, incrementing the progressbar
+        epub = fic.bind version: 2, callback: lambda { |fetched, total|
+          percent = (fetched / total.to_f) * 100
+          out << SSE.event(:progress, "#{percent.to_i}%")
           sleep 0.5 # poor man's rate limiter
-        }).tap { |e| e.cleanup }
+        }
 
-        # Switch to indeterminate
+        # Switch to the indeterminate progressbar
         out << SSE.event(:progress, "null")
 
         filename = "#{fic.author} - #{fic.title}.epub"
+        temp     = Tempfile.new filename
 
-        temp = Tempfile.new(filename)
+        # Write the epub to the tempfile
         epub.generate_epub_stream.tap do |es|
           es.rewind
           temp.write es.read
@@ -147,12 +149,13 @@ class Application < Sinatra::Base
 
         $files[id] = Hamster::Hash[filename: filename, tempfile: temp, time: Time.now]
 
+        # Encode the file information into a query string
         query = URI.encode_www_form([[:filename, filename],
-                                     [:path, temp.path],
-                                     [:id, id]])
+                                     [:path, temp.path], [:id, id]])
 
-        out << SSE.event(:progress, "100%")
-        out << SSE.event(:url, "/file?#{query}")
+
+        out << SSE.event(:progress, "100%")      # We're done, so set progress to 100%
+        out << SSE.event(:url, "/file?#{query}") # And give the client the file link
       rescue Exception => ex
         puts "An error of type #{ex.class} happened, message is #{ex.message}"
       end if fic
@@ -168,9 +171,11 @@ class Application < Sinatra::Base
     begin
       send_file params[:path], filename: params[:filename], type: 'application/epub+zip'
     ensure
-      file = $files[id]
-      file[:tempfile].close if file
-      $files.delete id if file
+      unless (file = $files[id]).nil?
+        file[:tempfile].close
+        file[:tempfile].unlink if file.respond_to?(:unlink)
+        $files.delete id
+      end
     end
   end
 
