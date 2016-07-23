@@ -1,14 +1,23 @@
 doctype html
 html
   head
-    meta content="text/html; charset=UTF-8" http-equiv="Content-Type"
-    /! Import Google Icon Font
-    link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"
-    /! Import materialize.css
-    link href="https://cdnjs.cloudflare.com/ajax/libs/material-design-iconic-font/2.2.0/css/material-design-iconic-font.min.css" rel="stylesheet"
-    link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.6/css/materialize.min.css" media="screen,projection" rel="stylesheet" type="text/css"
-    /! Let browser know website is optimized for mobile
-    meta content="width=device-width, initial-scale=1.0" name="viewport"
+    / Title
+    title ficrip
+
+    / Metadata
+    meta charset="UTF-8"
+    meta name="application-name" content="ficrip"
+    meta name="author" content="Katherine Whitlock"
+    meta name="description" content="An opinionated fanfiction.net downoloader"
+    meta name="keywords" content="fanfiction, download"
+    meta name="viewport" content="width=device-width, initial-scale=1.0"
+
+    / External Stylesheets
+    = stylesheet_link_tag 'https://fonts.googleapis.com/icon?family=Material+Icons'
+    = stylesheet_link_tag 'https://cdnjs.cloudflare.com/ajax/libs/material-design-iconic-font/2.2.0/css/material-design-iconic-font.min.css'
+    = stylesheet_link_tag 'https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.6/css/materialize.min.css', media: 'screen,projection'
+
+    / Internal styles
     css:
       body {
         position: absolute;
@@ -19,25 +28,32 @@ html
       main { height: 75%; }
       .bottom-spacer { flex: 1; }
       a { color: black; }
+
+    / Partial's extra styles
     - if content_for? :stylesheets
       == yield_content :stylesheets
+
+  / Main body
   body.white
+
+    / Primary content
     main.valign-wrapper
       .container.valign.black-text
-        - if content_for? :content
-          == yield_content :content
-        - else
-          == yield
+        #content== content_for?(:content) ? yield_content(:content) : yield
 
+    / Spacer
     .bottom-spacer
 
+    / Footer
     footer.page-footer.white
       .footer-copyright.white
         .container.center-align
           = link_to 'by katherine whitlock', 'https://github.com/toroidal-code', class: 'grey-text'
 
-    /! Import jQuery before materialize.js
-    script src="https://code.jquery.com/jquery-2.1.1.min.js" type="text/javascript"
-    script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.6/js/materialize.min.js" type="text/javascript"
+    / External javascript
+    = javascript_include_tag 'https://code.jquery.com/jquery-2.2.4.min.js'
+    = javascript_include_tag 'https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.6/js/materialize.min.js'
+
+    / Internal extra javascript
     - if content_for? :js
       == yield_content :js

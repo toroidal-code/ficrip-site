@@ -10,27 +10,27 @@ require 'slim'
 require 'oj_mimic_json'
 require 'ficrip'
 
-$files = Concurrent::Hash.new
+$files = Concurrent::Map.new
+$to_delete = Concurrent::Array.new
 
-# Cleanup old files by checking to see
-# if they're older than 6 hours
+# Cleanup tempfiles by checking to see
+# if they're older than an hour
 def cleanup_old_files
-  $files.each_key do |id|
-    if (Time.now - (6 * 60 * 60)) > $files[id][:time]
-      $files[id][:tempfile].close
-      $files[id][:tempfile].unlink
-      $files.delete k
+  $files.each_key do |path|
+    if $to_delete.include?(path) || (Time.now - (60 * 60)) > $files[path][:time]
+      $files[path][:tempfile].close
+      $files[path][:tempfile].unlink
+      $to_delete.delete path
+      $files.delete path
     end
   end
-rescue => e
-  p e
 end
 
-# Every two hours, clean up the leftover tempfiles that
+# Every thirty minutes, clean up the leftover tempfiles that
 # haven't already been GC'ed
 if $scheduler_thread
   scheduler = Rufus::Scheduler.new
-  scheduler.every '2h' do
+  scheduler.every '30m' do
     cleanup_old_files
   end
 end
@@ -63,7 +63,7 @@ class Application < Sinatra::Base
     # actual checks for csrf tokens from form submissions
     use Rack::Protection, except: :http_origin
 
-    set :server, :puma
+    set server: :puma
   end
 
   # The source-to-source transformations to switch themes
@@ -79,112 +79,101 @@ class Application < Sinatra::Base
   end
 
   # Light theme
-  get '/light' do
+  get '/light/?' do
     render 'index', layout: :main
   end
 
   # Dark theme
-  get '/dark' do
-    render('index', layout: :main).gsub(*replacements)
+  get '/dark/?' do
+    render('index', layout: :main).gsub( *replacements)
   end
 
   # Get a fanfic.
   # Takes two query params: 'style' and 'url'
   # 'url' is, obviously, the fanfiction.net story's URL
   get '/get' do
-    halt 403, render('errors/403') unless params[:url]
-    html = render 'download', layout: :main
-    params[:style] == 'dark' ? html.gsub(*replacements) : html
-  end
+    halt 403, render('errors/403') unless params[:storyid] || params[:url]
 
-  # Regexp to extract ff.net storyid from the URL
-  storyid_regexp = Regexp.new('fanfiction.net/s/(\d+)', true)
+    unless params[:storyid]
+      # Try to parse the StoryID
+      Integer params[:url].match(/fanfiction.net\/s\/(\d+)/i)[1] rescue
+          halt 403, render(:error, locals: { message: "\"#{params[:url]}\" isn't a valid story URL."})
+    end
+
+    html = render 'download', layout: :main
+    (params[:style] || %w(light dark).sample) == 'dark' ? html.gsub(*replacements) : html
+  end
 
   # The real guts of the fetcher
   get '/generate', provides: 'text/event-stream' do
-    halt 403, render('errors/403') unless params[:url] && params[:clientId]
+    storyid = params[:storyid].to_i
 
-    id  = params[:clientId]
-    url = params[:url]
-
-    stream do |out|
-      storyid = begin
-        Integer url.match(storyid_regexp)[1]
-      rescue
-        out << SSE.event(:error, "Error! \"#{url}\" isn't a valid story URL."); nil
-      end
-
+    s = stream do |out|
+      # Attempt to load the story
       fic = begin
         Ficrip.fetch storyid
-      rescue
-        out << SSE.event(:error, "Error! There's no fic with id #{storyid}."); nil
-      end if storyid
+      rescue ArgumentError
+        # If we get an ArgumentError from the fetcher, then it's an invalid ID
+        out << SSE.event(:error, render(:error, locals: { message: "There's no fic with storyid #{storyid}."}))
+        out << SSE.event(:close, true) and next  # Close the connection
+       rescue => e
+        # Otherwise, something else went wrong
+        out << SSE.event(:error, render('errors/500')) and p e
+        out << SSE.event(:close, true) and next  # Close the connection
+      end
 
-      begin
-        # Update the download page with title/author information
-        out << SSE.event(:info, {
-            title:  link_to(fic.title, fic.url),
-            author: link_to(fic.author, fic.author_url)
-        }.to_json)
+      # Update the download page with title/author information
+      out << SSE.event(:info, {
+          title:  link_to(fic.title, fic.url),
+          author: link_to(fic.author, fic.author_url)
+      }.to_json)
 
-        # Process the story into an EPUB2, incrementing the progressbar
-        epub = fic.bind version: 2, callback: lambda { |fetched, total|
-          percent = (fetched / total.to_f) * 100
-          out << SSE.event(:progress, "#{percent.to_i}%")
-          sleep 0.5 # poor man's rate limiter
-        }
+      # Process the story into an EPUB2, incrementing the progressbar
+      epub = fic.bind version: 2, callback: lambda { |fetched, total|
+        percent = (fetched / total.to_f) * 100
+        out << SSE.event(:progress, "#{percent.to_i}%")
+        sleep 0.5 # poor man's rate limiter
+      }
 
-        # Switch to the indeterminate progressbar
-        out << SSE.event(:progress, "null")
+      # Switch to the indeterminate progressbar
+      out << SSE.event(:progress, 'null')
 
-        filename = "#{fic.author} - #{fic.title}.epub"
-        temp     = Tempfile.new filename
+      filename = "#{fic.author} - #{fic.title}.epub"
+      temp     = Tempfile.new filename  # Create temporary file
 
-        # Write the epub to the tempfile
-        epub.generate_epub_stream.tap do |es|
-          es.rewind
-          temp.write es.read
-          es.close
-        end
+      # Write the epub to the tempfile
+      epub.generate_epub_stream.tap do |es|
+        es.rewind
+        temp.write es.read
+        es.close
+      end
 
-        $files[id] = Hamster::Hash[filename: filename, tempfile: temp, time: Time.now]
+      # Store the tempfile into the hash
+      $files[temp.path] = Hamster::Hash[filename: filename, tempfile: temp, time: Time.now]
 
-        # Encode the file information into a query string
-        query = URI.encode_www_form([[:filename, filename],
-                                     [:path, temp.path], [:id, id]])
+      # Encode the file information into a query string
+      query = URI.encode_www_form([[:filename, filename], [:path, temp.path]])
 
+      out << SSE.event(:progress, '100%')      # We're done, so set progress to 100%
+      out << SSE.event(:url, "/file?#{query}") # And give the client the file link
 
-        out << SSE.event(:progress, "100%")      # We're done, so set progress to 100%
-        out << SSE.event(:url, "/file?#{query}") # And give the client the file link
-      rescue Exception => ex
-        puts "An error of type #{ex.class} happened, message is #{ex.message}"
-      end if fic
-      out << SSE.event(:close, true)
+      out << SSE.event(:close, true)           # Close the EventSource
     end
   end
 
   # Download the generated file
   get '/file' do
-    halt 403, render('errors/403') unless params[:path] && params[:id] && params[:filename]
-    id = params[:id]
+    path, filename = params[:path], params[:filename]
+    halt 403, render('errors/403') unless path && filename
 
-    begin
-      send_file params[:path], filename: params[:filename], type: 'application/epub+zip'
-    ensure
-      unless (file = $files[id]).nil?
-        file[:tempfile].close
-        file[:tempfile].unlink if file.respond_to?(:unlink)
-        $files.delete id
-      end
-    end
+    $to_delete << path # Add the path to our list of files to cleanup
+    send_file path, filename: filename, type: 'application/epub+zip'
   end
 
   # Fancy adapter for fanfiction.net's URLs
-  get '/s/:id/?:ch?/?:title?/?' do
-    style = ['light', 'dark'].sample
-    query = URI.encode_www_form([[:style, style],
-                                 [:url, "https://fanfiction.net/s/#{params[:id]}"]])
-    redirect to("/get?#{query}")
+  get '/s/:storyid/?:ch?/?:title?/?' do
+    query = URI.encode_www_form([[:url, "https://fanfiction.net/s/#{params[:storyid]}"]])
+    redirect "/get?#{query}"
   end
 
   # 404 Page

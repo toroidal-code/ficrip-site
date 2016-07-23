@@ -20,6 +20,5 @@ gem 'haml'
 gem 'slim'
 gem 'oj'
 gem 'oj_mimic_json'
-gem 'coffee-script'
 
 gem 'newrelic_rpm'
