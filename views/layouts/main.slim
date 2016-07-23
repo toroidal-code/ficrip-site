@@ -1,0 +1,16 @@
+- content_for :stylesheets do
+  css:
+   .input-field > input[type=url]:focus:not([readonly]) {
+        border-bottom: 1px solid black;
+        box-shadow: 0 1px 0 0 black;
+   }
+   .backdrop { background-color: black; }
+   .material-tooltip { color: white; }
+- content_for :content do
+  h1
+    strong
+      span#title= link_to 'ficrip', 'https://github.com/toroidal-code/ficrip'
+  h5.thin.black-text
+    span#subtitle n. an opinionated fanfiction.net downloader
+  == content_for?(:page_content) ? yield_content(:page_content) : yield
+= render 'layouts/application'

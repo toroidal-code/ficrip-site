@@ -5,5 +5,5 @@
       .input-field.col.s12.m10.l10
         = url_field_tag :url, value: params[:url], placeholder: 'Story URL', autofocus: true, class: 'col s12 black-text', required:'required'
       .input-field.col.s12.m2.l2
-        %button.btn-large.tooltipped.waves-effect.waves-light.col.s12.black.white-text{'data-delay' => '50', 'data-position' => 'bottom', 'data-tooltip' => 'Download EPUB'}
-          %i.zmdi.zmdi-cloud-download
+        button.btn-large.tooltipped.waves-effect.waves-light.col.s12.black.white-text data-delay='50' data-position='bottom' data-tooltip='Download EPUB'
+          i.zmdi.zmdi-cloud-download

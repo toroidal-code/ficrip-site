@@ -1,16 +1,13 @@
 require 'sinatra/base'
-# require 'newrelic_rpm'
+require 'newrelic_rpm'
 require 'padrino-helpers'
-require 'message_bus'
 require 'rufus-scheduler'
 require 'concurrent'
 
 require 'haml'
-require 'json'
+require 'slim'
+require 'oj_mimic_json'
 require 'ficrip'
-
-MessageBus.configure(backend: :memory)
-MessageBus.long_polling_interval = 59000
 
 $files = Concurrent::Map.new
 
@@ -40,9 +37,20 @@ if $scheduler_thread
 end
 
 
+module SSE
+  def self.data(obj)
+    "data: #{obj}\n\n"
+  end
+
+  def self.event(ev, obj)
+    s = String.new
+    s << "event: #{ev}\n"
+    s << "data: #{obj}\n\n"
+  end
+end
+
 class Application < Sinatra::Base
   register Padrino::Helpers
-  use MessageBus::Rack::Middleware
 
   configure do
     enable :sessions
@@ -62,97 +70,108 @@ class Application < Sinatra::Base
                     'waves-light' => '' }]
 
   get '/' do
-    html = render 'index'
-    html.gsub!(*replacements) if [true, false].sample
-    html
+    html = render 'index', layout: :main
+    [true, false].sample ? html.gsub(*replacements) : html
   end
 
   # Light theme
   get '/light' do
-    render 'index'
+    render 'index', layout: :main
   end
 
   # Dark theme
   get '/dark' do
-    render('index').gsub(*replacements)
+    render('index', layout: :main).gsub(*replacements)
   end
 
   # Get a fanfic
   get '/get' do
-    html = render 'download'
-    html.gsub!(*replacements) if params[:style] == 'dark'
-    html
+    halt 403, render('errors/403') unless params[:url]
+    html = render 'download', layout: :main
+    params[:style] == 'dark' ? html.gsub(*replacements) : html
   end
 
   storyid_regexp = Regexp.new('fanfiction.net/s/(\d+)', true)
 
   # The real guts of the fetcher
-  post '/get' do
-    id  = params[:id]
+  get '/generate', provides: 'text/event-stream' do
+    id = params[:clientId]
     url = params[:url]
 
-    storyid = begin
-      Integer url.match(storyid_regexp)[1]
-    rescue
-      MessageBus.publish '/progress', { id: id, message: "Error! \"#{url}\" isn't a valid story URL." }
+    stream do |out|
+      storyid = begin
+        Integer url.match(storyid_regexp)[1]
+      rescue
+        out << SSE.event(:error, "Error! \"#{url}\" isn't a valid story URL."); nil
+      end
+
+      fic = begin
+        Ficrip.fetch storyid
+      rescue
+        out << SSE.event(:error, "Error! There's no fic with id #{storyid}."); nil
+      end if storyid
+
+      begin
+        out << SSE.event(:info, {
+            title: link_to(fic.title, fic.url),
+            author: link_to(fic.author, fic.author_url)
+        }.to_json)
+
+        fetched = 0
+
+        epub = fic.bind(version: 2, callback: lambda { # |fetched|
+          fetched += 1
+          percent = ((fetched / fic.chapters.count.to_f) * 100).to_i
+          out << SSE.event(:progress, "#{percent}%")
+          sleep 0.5 # poor man's rate limiter
+        }).tap { |e| e.cleanup }
+
+        # Switch to indeterminate
+        out << SSE.event(:progress, "null")
+
+        filename = "#{fic.author} - #{fic.title}.epub"
+
+        temp = Tempfile.new(filename)
+        epub.generate_epub_stream.tap do |es|
+          es.rewind
+          temp.write es.read
+          es.close
+        end
+
+        $files[id] = Concurrent::Hash[filename: filename, tempfile: temp, time: Time.now]
+        puts $files[id]
+        out << SSE.event(:progress, "100%")
+        out << SSE.event(:url, "/file/#{id}")
+      rescue Exception => ex
+        puts "An error of type #{ex.class} happened, message is #{ex.message}"
+      end if fic
+
+      out << SSE.event(:close, true)
     end
-
-    fic     = begin
-      Ficrip.fetch storyid
-    rescue
-      MessageBus.publish '/progress', { id: id, message: "Error! There is no fic with id #{storyid}." }
-    end if storyid
-
-    begin
-      fetched = 0
-
-      epub = fic.bind(version: 2, callback: lambda {
-        fetched += 1
-        percent = ((fetched / fic.chapters.count.to_f) * 100).to_i
-        MessageBus.publish '/progress', { id: id, progress: "#{percent}%" }
-        sleep .5 # poor man's rate limiter
-      })
-
-      # Switch to indeterminate
-      MessageBus.publish '/progress', { id: id, progress: nil }
-
-      filename = "#{fic.author} - #{fic.title}.epub"
-
-      temp = Tempfile.new(filename)
-
-      epub.cleanup
-      Zip::OutputStream::write_buffer(temp) { |f| epub.write_to_epub_container f }
-
-      $files[id] = Concurrent::Hash[filename: filename, tempfile: temp, time: Time.now]
-      MessageBus.publish '/progress', { id: id, url: "/file/#{id}" }
-    rescue Exception => ex
-      puts "An error of type #{ex.class} happened, message is #{ex.message}"
-    end if fic
-    'OK'
   end
 
-  # Download the generated file
+    # Download the generated file
   get '/file/:id' do |id|
     file = $files[id]
+    halt 404, render('errors/404') unless file
     begin
-      send_file file[:tempfile].path, filename: file[:filename], type: 'application/epub+zip'
+      #File.read(file[:tempfile].path)
+      send_file file[:tempfile].path, filename: file[:filename], type: 'application/epub+zip', disposition: 'attachement'
     ensure
       file[:tempfile].close
-      MessageBus.publish '/progress', { id: id, url: '/' }
+      $files.delete id
     end
   end
 
   not_found do
     status 404
-    html = render 'errors/404', layout: :error
-    html.gsub!(*replacements) if [true, false].sample
-    html
+    html = render 'errors/404'
+    [true, false].sample ? html.gsub!(*replacements) : html
   end
 
   error Exception do
     status 500
-    html = render 'errors/500', layout: :error
-    html.gsub!(*replacements) if [true, false].sample
-    html
+    html = render 'errors/500'
+    [true, false].sample ? html.gsub!(*replacements) : html
   end
 end

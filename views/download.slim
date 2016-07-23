@@ -1,0 +1,58 @@
+.row.black-text
+  br
+  .progress.grey.lighten-3
+    #progress.determinate.black style='width: 0%'
+
+- content_for :js do
+  = javascript_include_tag 'eventsource.min'
+  coffee:
+    urlParams = undefined;
+    (window.onpopstate = ->
+      match  = undefined
+      pl     = /\+/g  # Regex for replacing addition symbol with a space
+      search = /([^&=]+)=?([^&]*)/g
+      decode = (s) -> decodeURIComponent(s.replace(pl, " "))
+      query  = window.location.search.substring(1)
+
+      urlParams = {}
+      while match = search.exec(query)
+        urlParams[decode(match[1])] = decode(match[2])
+      return
+    )()
+
+    @clientId = 'xxxxxxxxxxxx4xxxyxxxxxxxxxxxxxxx'.replace /[xy]/g, (c) ->
+      r = Math.random() * 16 | 0;
+      v = if c == 'x' then r else (r & 0x3 | 0x8)
+      v.toString 16
+
+    $(document).ready ->
+      $.fn.exists = -> this.length != 0;
+
+      es = new EventSource('/generate' + '?' + $.param({
+        clientId: clientId
+        url: urlParams['url']
+      }))
+
+      es.addEventListener 'error', (e) ->
+        $('.progress').replaceWith '<div class="center" style="font-weight:300">' + e.data + '</div>'
+        return
+
+      es.addEventListener 'progress', (e) ->
+        if e.data == 'null'
+          $('#progress').removeClass('determinate').addClass('indeterminate')
+        else if $('.indeterminate').exists()
+          $('#progress').removeClass('indeterminate').addClass('determinate').css 'width', e.data
+        else
+          $('#progress').css 'width', e.data
+        return
+
+      es.addEventListener 'url', (e) -> window.location = e.data
+      es.addEventListener 'close', (e) -> if e.data == 'true' then es.close()
+
+      es.addEventListener 'info', (e) ->
+        info = $.parseJSON e.data
+        $('#title').add('#subtitle').fadeOut 1000, ->
+          $('#title').replaceWith('<span id="title" style="display: none">' + info.title + '</span>')
+          $('#subtitle').replaceWith('<span id="subtitle" style="display: none">by ' + info.author + '</span>')
+          $('#title').add('#subtitle').fadeIn 1000
+
