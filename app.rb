@@ -172,7 +172,7 @@ class Application < Sinatra::Base
 
   # Fancy adapter for fanfiction.net's URLs
   get '/s/:storyid/?:ch?/?:title?/?' do
-    query = URI.encode_www_form([[:url, "https://fanfiction.net/s/#{params[:storyid]}"]])
+    query = URI.encode_www_form([[:storyid, params[:storyid]]])
     redirect "/get?#{query}"
   end
 
