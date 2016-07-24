@@ -1,9 +1,9 @@
 GIT
   remote: git://github.com/toroidal-code/ficrip.git
-  revision: 0bfe1a39eff6d82e95377fbc0428013b67c3e3ab
+  revision: 734ed3202d328e9a419f82e84f2d64e6d129b0f4
   branch: master
   specs:
-    ficrip (0.0.1)
+    ficrip (0.0.2)
       chronic_duration (~> 0.10)
       contracts (~> 0.14)
       fastimage (~> 1.8)
@@ -89,9 +89,3 @@ DEPENDENCIES
   rufus-scheduler (~> 3.2)
   sinatra (~> 1.4.7)
   slim
-
-RUBY VERSION
-   ruby 2.3.1p112
-
-BUNDLED WITH
-   1.12.5
