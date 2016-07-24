@@ -2,13 +2,13 @@ require 'sinatra/base'
 require 'newrelic_rpm'
 require 'padrino-helpers'
 require 'rufus-scheduler'
-require 'concurrent'
-require 'hamster/hash'
+require 'concurrent/map'
+require 'concurrent/array'
 
-require 'haml'
 require 'slim'
 require 'oj_mimic_json'
 require 'ficrip'
+
 
 $files = Concurrent::Map.new
 $to_delete = Concurrent::Array.new
@@ -149,7 +149,7 @@ class Application < Sinatra::Base
       end
 
       # Store the tempfile into the hash
-      $files[temp.path] = Hamster::Hash[filename: filename, tempfile: temp, time: Time.now]
+      $files[temp.path] = { tempfile: temp, time: Time.now }
 
       # Encode the file information into a query string
       query = URI.encode_www_form([[:filename, filename], [:path, temp.path]])
