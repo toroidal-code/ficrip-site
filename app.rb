@@ -101,7 +101,7 @@ class Application < Sinatra::Base
 
   get '/about/?' do
     html = render('about')
-    (params[:style] || %w(light dark).sample) == 'dark' ? html.gsub(*replacements) : html
+    [true, false].sample ? html.gsub(*replacements) : html
   end
   # Get a fanfic via post. Basically the same as get, but with file uploading
   # Takes two query params: 'style' and 'url'
