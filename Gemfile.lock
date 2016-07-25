@@ -1,14 +1,15 @@
 GIT
   remote: git://github.com/toroidal-code/ficrip.git
-  revision: 734ed3202d328e9a419f82e84f2d64e6d129b0f4
+  revision: ef66aa139d07427590329e64eb259214f1a88dc8
   branch: master
   specs:
     ficrip (0.0.2)
       chronic_duration (~> 0.10)
       contracts (~> 0.14)
-      fastimage (~> 1.8)
+      fastimage (~> 2.0)
       gepub (= 0.7.0beta3)
       i18n_data (~> 0.7)
+      mimemagic (~> 0.3)
       nokogiri (~> 1.6)
       retryable (~> 2.0)
       ruby-progressbar (~> 1.8)
@@ -22,20 +23,21 @@ GEM
       i18n (~> 0.7)
       minitest (~> 5.1)
       tzinfo (~> 1.1)
-    addressable (2.3.8)
+    addressable (2.4.0)
     chronic_duration (0.10.6)
       numerizer (~> 0.1.1)
     concurrent-ruby (1.0.2)
     concurrent-ruby-ext (1.0.2)
       concurrent-ruby (~> 1.0.2)
     contracts (0.14.0)
-    fastimage (1.9.0)
-      addressable (~> 2.3.5)
+    fastimage (2.0.0)
+      addressable (~> 2)
     gepub (0.7.0beta3)
       nokogiri (~> 1.6.1)
       rubyzip (>= 1.1.1)
     i18n (0.7.0)
     i18n_data (0.7.0)
+    mimemagic (0.3.1)
     mini_portile2 (2.1.0)
     minitest (5.9.0)
     newrelic_rpm (3.16.0.318)
@@ -56,6 +58,7 @@ GEM
     rack (1.6.4)
     rack-protection (1.5.3)
       rack
+    redcarpet (3.3.4)
     retryable (2.0.4)
     ruby-progressbar (1.8.1)
     rubyzip (1.2.0)
@@ -86,6 +89,10 @@ DEPENDENCIES
   oj_mimic_json
   padrino-helpers (~> 0.13)
   puma
+  redcarpet
   rufus-scheduler (~> 3.2)
   sinatra (~> 1.4.7)
   slim
+
+BUNDLED WITH
+   1.10.6

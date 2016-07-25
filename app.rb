@@ -9,6 +9,10 @@ require 'slim'
 require 'oj_mimic_json'
 require 'ficrip'
 
+require 'open-uri'
+
+FANFICTION_STORY_REGEX_STRING = "^(https?://)?(www.)?fanfiction.net/s/\\d+(?!\\w)(/.*)?$|^\\d+$"
+FANFICTION_STORY_REGEX = Regexp.compile('fanfiction.net/s/(\d+)(?!\w+)(/.*)?$|^(\d+)$',true)
 
 $files = Concurrent::Map.new
 $to_delete = Concurrent::Array.new
@@ -16,12 +20,12 @@ $to_delete = Concurrent::Array.new
 # Cleanup tempfiles by checking to see
 # if they're older than an hour
 def cleanup_old_files
-  $files.each_key do |path|
-    if $to_delete.include?(path) || (Time.now - (60 * 60)) > $files[path][:time]
-      $files[path][:tempfile].close
-      $files[path][:tempfile].unlink
-      $to_delete.delete path
-      $files.delete path
+  $files.each_key do |uuid|
+    if $to_delete.include?(uuid) || (Time.now - (60 * 60)) > $files[uuid][:time]
+      $files[uuid][:tempfile].close
+      $files[uuid][:tempfile].unlink if $files[uuid].respond_to?(:unlink)
+      $to_delete.delete uuid
+      $files.delete uuid
     end
   end
 end
@@ -73,8 +77,15 @@ class Application < Sinatra::Base
                     'waves-light' => '' }]
 
   # The index page
-  get '/' do
-    html = render 'index', layout: :main
+  ['/', '/simple/?'].each do |path|
+    get path do
+      html = render 'index', layout: :main
+      [true, false].sample ? html.gsub(*replacements) : html
+    end
+  end
+
+  get '/advanced/?' do
+    html = render 'advanced', layout: :main
     [true, false].sample ? html.gsub(*replacements) : html
   end
 
@@ -85,19 +96,43 @@ class Application < Sinatra::Base
 
   # Dark theme
   get '/dark/?' do
-    render('index', layout: :main).gsub( *replacements)
+    render('index', layout: :main).gsub(*replacements)
   end
 
-  # Get a fanfic.
+  get '/about/?' do
+    html = render('about')
+    (params[:style] || %w(light dark).sample) == 'dark' ? html.gsub(*replacements) : html
+  end
+  # Get a fanfic via post. Basically the same as get, but with file uploading
   # Takes two query params: 'style' and 'url'
   # 'url' is, obviously, the fanfiction.net story's URL
-  get '/get' do
-    halt 403, render('errors/403') unless params[:storyid] || params[:url]
+  post '/get' do
+    halt 403, render('errors/403') unless params[:story]
 
-    unless params[:storyid]
-      # Try to parse the StoryID
-      Integer params[:url].match(/fanfiction.net\/s\/(\d+)/i)[1] rescue
-          halt 403, render(:error, locals: { message: "\"#{params[:url]}\" isn't a valid story URL."})
+    if params[:cover_file] && !params[:cover_file].empty? &&
+        params[:cover_uuid] && !params[:cover_uuid].empty?
+
+      tempfile = Tempfile.new(params[:cover_file][:filename]).tap do |temp|
+        temp.write params[:cover_file][:tempfile].read
+        temp.rewind
+      end
+
+      $files[params[:cover_uuid]] = {
+          tempfile: tempfile,
+          filename: params[:cover_file][:filename],
+          time:     Time.now
+      }
+    end
+
+    # Safety's sake since we're exposing params to the client through string interpolation
+    # in the embedded javascript in the view
+    params[:cover_file] = nil
+
+    # Try to parse the StoryID
+    unless (match = params[:story].match(FANFICTION_STORY_REGEX)).nil?
+      match_item = match.captures.reject(&:nil?).first
+      Integer match_item rescue
+          halt 403, render(:error, locals: { message: "\"#{params[:story]}\" isn't a valid story URL or ID."})
     end
 
     html = render 'download', layout: :main
@@ -106,15 +141,19 @@ class Application < Sinatra::Base
 
   # The real guts of the fetcher
   get '/generate', provides: 'text/event-stream' do
-    storyid = params[:storyid].to_i
+    cover = if params[:cover_uuid]
+              $files[params[:cover_uuid]][:tempfile]
+            elsif params[:cover_url] && !params[:cover_url].empty?
+              open(params[:cover_url])
+            end
 
-    s = stream do |out|
-      # Attempt to load the story
+    stream do |out|
+      # # Attempt to load the story
       fic = begin
-        Ficrip.fetch storyid
+        Ficrip.fetch params[:story]
       rescue ArgumentError
         # If we get an ArgumentError from the fetcher, then it's an invalid ID
-        out << SSE.event(:error, render(:error, locals: { message: "There's no fic with storyid #{storyid}."}))
+        out << SSE.event(:error, render(:error, locals: { message: "There's no fic with storyid #{params[:story]}."}))
         out << SSE.event(:close, true) and next  # Close the connection
        rescue => e
         # Otherwise, something else went wrong
@@ -128,8 +167,10 @@ class Application < Sinatra::Base
           author: link_to(fic.author, fic.author_url)
       }.to_json)
 
+      epub_version = params[:epub_version] ? params[:epub_version].to_i : 2
+
       # Process the story into an EPUB2, incrementing the progressbar
-      epub = fic.bind version: 2, callback: lambda { |fetched, total|
+      epub = fic.bind version: epub_version, cover: cover, callback: lambda { |fetched, total|
         percent = (fetched / total.to_f) * 100
         out << SSE.event(:progress, "#{percent.to_i}%")
         sleep 0.5 # poor man's rate limiter

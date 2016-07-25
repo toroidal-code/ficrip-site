@@ -1,10 +1,13 @@
 .row
-  = form_tag '/get', class: 'col s12', method: :get do
+  = form_tag '/get', class: 'col s12', method: 'POST' do
     = hidden_field_tag :style, value: 'light'
     .row
       .input-field.col.s12.m10.l10
-        = url_field_tag :url, placeholder: 'Story URL', class: 'col s12 black-text',
-                required: true, pattern: /fanfiction.net\/s\/(\d+)/i
+        = url_field_tag :story, placeholder: 'Story URL', class: 'col s12 black-text', required: true
       .input-field.col.s12.m2.l2
         button.btn-large.tooltipped.waves-effect.waves-light.col.s12.black.white-text data-delay='50' data-position='bottom' data-tooltip='Download EPUB'
           i.zmdi.zmdi-cloud-download
+
+- content_for :footer_items do
+  = ' | '
+  = link_to 'advanced', '/advanced?style=light', class: 'grey-text'

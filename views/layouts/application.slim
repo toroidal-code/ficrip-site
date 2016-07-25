@@ -46,14 +46,17 @@ html
 
     / Footer
     footer.page-footer.white
-      .footer-copyright.white
-        .container.center-align
-          = link_to 'by katherine whitlock', 'https://github.com/toroidal-code', class: 'grey-text'
+      - if content_for?(:footer)
+        == yield_content(:footer)
+      - else
+        .footer-copyright.white
+          .container.center-align.grey-text
+            = link_to 'by katherine whitlock', 'about?style=light', class: 'grey-text'
+            == yield_content(:footer_items) if content_for(:footer_items)
 
     / External javascript
     = javascript_include_tag 'https://code.jquery.com/jquery-2.2.4.min.js'
     = javascript_include_tag 'https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.6/js/materialize.min.js'
 
     / Internal extra javascript
-    - if content_for? :js
-      == yield_content :js
+    == yield_content(:js) if content_for? :js

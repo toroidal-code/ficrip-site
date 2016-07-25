@@ -1,0 +1,73 @@
+.row
+  = form_tag '/get', class: 'col s12', method: 'POST', enctype: 'multipart/form-data' do
+    = hidden_field_tag :style, value: 'light'
+    = hidden_field_tag :cover_uuid, value: SecureRandom.uuid, disabled: true
+    .row
+      / Input the story's URL
+      .input-field.col.s9.m10.l10
+        / TODO: Better input rejection message with setCustomValidity
+        = text_field_tag :story, placeholder: 'Story URL or ID', class: 'col s12 black-text',
+                required: true, pattern: FANFICTION_STORY_REGEX_STRING
+
+      / Choose the EPUB format
+      .input-field.col.s3.m2.l2
+        = select_tag :epub_version, options: [['EPUB2', 2], ['EPUB3', 3]]
+        label EPUB version
+    .row
+      / Input a cover URL
+      #cover-url-field.input-field.col.s9.m8.l9
+        = url_field_tag :cover_url, placeholder: 'Cover URL (Optional)', class: 'col s12 black-text'
+
+      / Select a cover file
+      #cover-file-field.file-field.input-field.col.s9.m8.l9 style='display:none'
+        .btn.black.white-text
+          span File
+          input[name='cover_file' type='file' disabled]
+        .file-path-wrapper
+          input placeholder='Upload cover file' class='file-path validate' type='text'
+
+      / Choose between a URL and uploading a file for the cover
+      .input-field.col.s3.m2.l1
+        select#source-selector.black-text onchange='swapCoverField(this)' title="url_or_upload"
+          option[value='URL'] URL
+          option[value='Upload'] Upload
+        label Cover source
+      .input-field.col.s12.m2.l2
+        button.btn-large.tooltipped.waves-effect.waves-light.col.s12.black.white-text data-delay='50' data-position='bottom' data-tooltip='Download EPUB'
+          i.zmdi.zmdi-cloud-download
+
+- content_for :footer_items do
+  = ' | '
+  = link_to 'simple', '/?style=light', class: 'grey-text'
+
+- content_for :js do
+  javascript:
+    $(document).ready(function() {
+      $('#source-selector').find('option[value="URL"]').prop('selected', true);
+      $('select').material_select();
+      window.swapCoverField = function (sel){
+        if (sel.value == 'URL') {
+          $('#cover-file-field').fadeOut(500, function(){
+            $('#cover-url-field').fadeIn(500);
+            $('input[name="cover_uuid"]').add('input[name="cover_file"]').prop('disabled', true);
+          });
+          $('input[name="cover_url"]').prop('disabled', false);
+        } else if (sel.value == 'Upload') {
+          $('#cover-url-field').fadeOut(500, function(){
+            $('#cover-file-field').fadeIn(1000);
+            $('input[name="cover_url"]').prop('disabled', true);
+          });
+          $('input[name="cover_uuid"]').add('input[name="cover_file"]').prop('disabled', false)
+        }
+      };
+
+      $('.dropdown-button').dropdown({
+        inDuration: 300,
+        outDuration: 225,
+        constrain_width: false, // Does not change width of dropdown to that of the activator
+        hover: true, // Activate on hover
+        gutter: 0, // Spacing from edge
+        belowOrigin: false, // Displays dropdown below the button
+        alignment: 'left' // Displays dropdown with edge aligned to the left of button
+      });
+    });

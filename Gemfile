@@ -14,6 +14,7 @@ gem 'rufus-scheduler', '~> 3.2'
 gem 'puma'
 
 gem 'slim'
+gem 'redcarpet'
 gem 'oj'
 gem 'oj_mimic_json'
 

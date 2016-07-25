@@ -6,28 +6,12 @@
 - content_for :js do
   = javascript_include_tag 'eventsource.min'
   javascript:
-    var urlParams = null;
-    (window.onpopstate = function () {
-      var match,
-          pl     = /\+/g,  // Regex for replacing addition symbol with a space
-          search = /([^&=]+)=?([^&]*)/g,
-          decode = function (s) { return decodeURIComponent(s.replace(pl, " ")); },
-          query  = window.location.search.substring(1);
-
-      urlParams = {};
-      while (match = search.exec(query))
-        urlParams[decode(match[1])] = decode(match[2]);
-    })();
-
-    var matched = (/fanfiction.net\/s\/(\d+)/i).exec(urlParams.url);
-    var storyid = urlParams.storyid || function () { if (matched) return matched[1];}();
-    console.log(storyid);
-
     $(document).ready(function () {
       $.fn.exists = function () { return this.length !== 0;  };
+      var params = $.parseJSON("#{js_escape_html params.to_json.html_safe}");
 
       // Connect to the server
-      var es = new EventSource('/generate' + '?' + $.param({ storyid: storyid }));
+      var es = new EventSource('/generate' + '?' + $.param(params));
 
       // Report an error
       es.addEventListener('error', function (e) {
@@ -59,7 +43,7 @@
         var info = $.parseJSON(e.data);
         $('#title').add('#subtitle').fadeOut(1000, function () {
           $('#title').replaceWith('<span id="title" style="display: none">' + info.title + '</span>');
-          $('#subtitle').replaceWith('<span id="subtitle" style="display: none">by ' + info.author + '</span>');
+          $('#subtitle').replaceWith('<span id="subtitle" style="display: none">&nbsp; by ' + info.author + '</span>');
           $('#title').add('#subtitle').fadeIn(2000);
         });
       });
