@@ -45,6 +45,7 @@
     $(document).ready(function() {
       $('#source-selector').find('option[value="URL"]').prop('selected', true);
       $('select').material_select();
+
       window.swapCoverField = function (sel){
         if (sel.value == 'URL') {
           $('#cover-file-field').fadeOut(500, function(){
@@ -52,12 +53,21 @@
             $('input[name="cover_uuid"]').add('input[name="cover_file"]').prop('disabled', true);
           });
           $('input[name="cover_url"]').prop('disabled', false);
+          $('form').off('submit');
+
         } else if (sel.value == 'Upload') {
           $('#cover-url-field').fadeOut(500, function(){
             $('#cover-file-field').fadeIn(1000);
             $('input[name="cover_url"]').prop('disabled', true);
           });
-          $('input[name="cover_uuid"]').add('input[name="cover_file"]').prop('disabled', false)
+          $('input[name="cover_uuid"]').add('input[name="cover_file"]').prop('disabled', false);
+          $('form').submit(function(){
+            $('form').replaceWith(
+                    '<div class="grey lighten-3 progress">' +
+                    '<div class="black indeterminate" id=progress style="width: 0"></div>' +
+                    '</div>'
+            );
+          });
         }
       };
 
