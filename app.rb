@@ -2,6 +2,7 @@ require 'sinatra/base'
 require 'newrelic_rpm'
 require 'padrino-helpers'
 require 'rufus-scheduler'
+require 'retryable'
 require 'concurrent/map'
 require 'concurrent/array'
 
@@ -11,9 +12,30 @@ require 'ficrip'
 
 require 'open-uri'
 
+# Global settings
+Slim::Engine.disable_option_validator!
+
+# Constants
 FANFICTION_STORY_REGEX_STRING = "^(https?://)?(www.)?fanfiction.net/s/\\d+(?!\\w)(/.*)?$|^\\d+$"
 FANFICTION_STORY_REGEX = Regexp.compile('fanfiction.net/s/(\d+)(?!\w+)(/.*)?$|^(\d+)$',true)
+DEFAULT_ERROR_MESSAGES = {
+    400 => ['garbage in, garbage out'],
+    403 => ['nope', '(nice try, though)'],
+    404 => ['whoops'],
+    406 => ['This... is... UNACCEPTABLE!!!',
+            'Dungeon. Seven years dungeon, no trial.'],
+    409 => ['CONFLICT!', 'I live for it'],
+    410 => ['See, we <em>used</em> to have that...'],
+    423 => ["Locked 'n loaded", '...ever hear of resource starvation?'],
+    424 => ['Something else failed... then we failed',
+            "So everybody fails. It's just one big ball of fail."],
+    429 => ["Ever hear that saying about 'too much of a good thing'?",
+            'Yeah. Well, that happened. Try again later-ish?'],
+    500 => ['damn.', 'well, we tried'],
+    505 => ['...what?']
+}
 
+# Global variables
 $files = Concurrent::Map.new
 $to_delete = Concurrent::Array.new
 
@@ -42,51 +64,120 @@ end
 # This is a simple little helper
 # module for properly formatting
 # Server-Sent Event messages
-module SSE
-  def self.data(obj)
-    "data: #{obj}\n\n"
+class EventReceiver
+  attr_reader :stream
+
+  # Start with the event stream
+  def initialize(stream) @stream = stream  end
+
+  # Set the event name buffer to ev and maybe send data
+  def event(ev, obj=nil)
+    @stream << "event: #{ev}\n"
+    data(obj) unless obj.nil?
+    self
   end
 
-  def self.event(ev, obj)
-    s = String.new
-    s << "event: #{ev}\n"
-    s << "data: #{obj}\n\n"
+  # Append obj to the data buffer
+  def data(obj)
+    @stream << "data: #{obj}\n"
+    self
+  end
+
+  # Set the event stream's last event ID
+  def id(val)
+    @stream << "id: #{val}\n"
+    self
+  end
+
+  # Set the event stream's reconnection time
+  def retry(num)
+    @stream << "retry: #{num}\n"
+    self
+  end
+
+  # Dispatch the event
+  def fire!
+    @stream << "\n"
+    self
+  end
+
+  def fire_event(ev, obj=nil)
+    event(ev, obj).fire!
+  end
+
+  def send_message(*args)
+    data(*args).fire!
+  end
+end
+
+class Object
+  def randomly
+    [true, false].sample ? yield(self) : self
+  end
+  def with;
+    yield self
   end
 end
 
 # The core of the web application
+# noinspection ALL
 class Application < Sinatra::Base
   register Padrino::Helpers
 
   configure do
     enable :sessions
-    set :session_secret, SecureRandom.hex(32)
     enable :protection
-    # enable authenticity_token in forms
-    set :protect_from_csrf, true
-    # actual checks for csrf tokens from form submissions
-    use Rack::Protection, except: :http_origin
-
+    set session_secret: SecureRandom.hex(32)
+    set protect_from_csrf: true # enable authenticity_token in forms
     set server: :puma
+    use Rack::Protection, except: :http_origin
   end
 
   # The source-to-source transformations to switch themes
-  replacements = [/(white|black|waves-light|light|dark)/,
-                  { 'white'       => 'black', 'black' => 'white',
-                    'light'       => 'dark', 'dark' => 'light',
-                    'waves-light' => '' }]
+  switch_themes = -> (page) do
+    page.gsub(/(white|black|waves-light|light|dark)/, {
+        'white'       => 'black', 'black' => 'white',
+        'light'       => 'dark', 'dark' => 'light',
+        'waves-light' => ''
+    })
+  end and define_method(:switch_themes, &switch_themes)
+
+  # Super fancy error handler
+  def magic_error(code_or_msg = nil, code_or_msg2 = nil, code: nil, msg: nil, generic: false, halt: true)
+    [code_or_msg2, code_or_msg].each do |v|
+      if v.is_a? Array
+        msg = v
+      elsif v.is_a? String
+        msg = [v]
+      elsif v.is_a? Integer
+        code = v
+      end
+    end
+
+    locals = Hash.new.tap do |h|
+      unless code.nil?
+        h[:code] = code unless generic
+        h[:message] = DEFAULT_ERROR_MESSAGES[code]
+      end
+      h[:message] = msg unless msg.nil?
+      h[:generic] = generic
+    end
+
+    status code unless code.nil? || generic
+    page = render(:error, locals: locals).randomly { |p| switch_themes p }
+    halt && !code.nil? ? halt(code, page) : page
+  end
 
   # The index page
   ['/', '/simple/?'].each do |path|
-    get path do
-      html = render 'index', layout: :main
-      [true, false].sample ? html.gsub(*replacements) : html
+    get(path) do
+      render('index', layout: :main).randomly(&switch_themes)
     end
   end
 
+  # Advanced options
   get '/advanced/?' do
-    html = render 'advanced', layout: :main
-    [true, false].sample ? html.gsub(*replacements) : html
+    render('advanced', layout: :main).randomly(&switch_themes)
   end
 
   # Light theme
@@ -96,88 +187,101 @@ class Application < Sinatra::Base
 
   # Dark theme
   get '/dark/?' do
-    render('index', layout: :main).gsub(*replacements)
+    render('index', layout: :main).with(&switch_themes)
   end
 
+  # About page
   get '/about/?' do
-    html = render('about')
-    [true, false].sample ? html.gsub(*replacements) : html
+    render('about').randomly(&switch_themes)
   end
+
   # Get a fanfic via post. Basically the same as get, but with file uploading
   # Takes two query params: 'style' and 'url'
   # 'url' is, obviously, the fanfiction.net story's URL
   post '/get' do
-    halt 403, render('errors/403') unless params[:story]
+    magic_error 400 unless params[:story]
 
-    if params[:cover_file] && !params[:cover_file].empty? &&
-        params[:cover_uuid] && !params[:cover_uuid].empty?
+    # Try to parse the StoryID
+    unless (match = params[:story].match(FANFICTION_STORY_REGEX)).nil?
+      begin
+        Integer match.captures.reject(&:nil?).first
+      rescue
+        magic_error 400, ['garbage in, garbage out', '(your URL or ID is invalid)']
+      end
+    end
 
-      tempfile = Tempfile.new(params[:cover_file][:filename]).tap do |temp|
+    if params[:cover_file]  && !params[:cover_file].empty?
+      tempfile = Tempfile.new( params[:cover_file][:filename] ).tap do |temp|
         temp.write params[:cover_file][:tempfile].read
         temp.rewind
       end
 
-      $files[params[:cover_uuid]] = {
+      uuid = SecureRandom.uuid
+      $files[uuid] = {
           tempfile: tempfile,
           filename: params[:cover_file][:filename],
           time:     Time.now
       }
-    end
 
-    # Safety's sake since we're exposing params to the client through string interpolation
-    # in the embedded javascript in the view
-    params[:cover_file] = nil
-
-    # Try to parse the StoryID
-    unless (match = params[:story].match(FANFICTION_STORY_REGEX)).nil?
-      match_item = match.captures.reject(&:nil?).first
-      Integer match_item rescue
-          halt 403, render(:error, locals: { message: "\"#{params[:story]}\" isn't a valid story URL or ID."})
+      # Safety's sake since we're exposing params to the client through string interpolation
+      # in the embedded javascript in the view
+      params.delete 'cover_file' # keys are really strings? weird.
+      params[:cover_uuid] = uuid
     end
 
     html = render 'download', layout: :main
-    (params[:style] || %w(light dark).sample) == 'dark' ? html.gsub(*replacements) : html
+    (params[:style] || %w(light dark).sample) == 'dark' ? html.with(&switch_themes) : html
   end
 
   # The real guts of the fetcher
   get '/generate', provides: 'text/event-stream' do
-    cover = if params[:cover_uuid]
-              $files[params[:cover_uuid]][:tempfile]
-            elsif params[:cover_url] && !params[:cover_url].empty?
-              open(params[:cover_url])
-            end
+    stream do |out| begin
+      er = EventReceiver.new out
 
-    stream do |out|
-      # # Attempt to load the story
+      # Get the cover
+      cover = if params[:cover_uuid]
+        c = $files[params[:cover_uuid]]
+        c[:tempfile] unless c.nil?
+      elsif params[:cover_url] && !params[:cover_url].empty?
+        begin
+          # Try to fetch the cover from the URL
+          Retryable.retryable(tries: 5, on: OpenURI::HTTPError) { open(params[:cover_url]) }
+        rescue OpenURI::HTTPError
+          er.fire_event :error, magic_error("Couldn't fetch the cover at #{params[:cover_url]}.")
+          next # Close the stream and halt
+        rescue
+          er.fire_event :error, magic_error("There's no cover at #{params[:cover_url]}.")
+          next
+        end
+      else nil
+      end
+
+      # Attempt to load the story
       fic = begin
         Ficrip.fetch params[:story]
       rescue ArgumentError
         # If we get an ArgumentError from the fetcher, then it's an invalid ID
-        out << SSE.event(:error, render(:error, locals: { message: "There's no fic with storyid #{params[:story]}."}))
-        out << SSE.event(:close, true) and next  # Close the connection
+        er.fire_event :error, magic_error("There's no fic with storyid #{params[:story]}.")
+        next
        rescue => e
         # Otherwise, something else went wrong
-        out << SSE.event(:error, render('errors/500')) and p e
-        out << SSE.event(:close, true) and next  # Close the connection
+        er.fire_event(:error, magic_error(500, halt:false))
+        p e and next
       end
 
       # Update the download page with title/author information
-      out << SSE.event(:info, {
-          title:  link_to(fic.title, fic.url),
-          author: link_to(fic.author, fic.author_url)
-      }.to_json)
+      er.fire_event :info, { title:  link_to(fic.title, fic.url),
+                             author: link_to(fic.author, fic.author_url) }.to_json
 
-      epub_version = params[:epub_version] ? params[:epub_version].to_i : 2
+      epub_version = Integer params[:epub_version] rescue 2
+      epub_version = 2 unless [2,3].include? epub_version
 
       # Process the story into an EPUB2, incrementing the progressbar
-      epub = fic.bind version: epub_version, cover: cover, callback: lambda { |fetched, total|
+      epub = fic.bind version: epub_version , cover: cover, callback: -> (fetched, total) do
         percent = (fetched / total.to_f) * 100
-        out << SSE.event(:progress, "#{percent.to_i}%")
+        er.fire_event :progress, "#{percent.to_i}%"
         sleep 0.5 # poor man's rate limiter
-      }
-
-      # Switch to the indeterminate progressbar
-      out << SSE.event(:progress, 'null')
+      end
 
       filename = "#{fic.author} - #{fic.title}.epub"
       temp     = Tempfile.new filename  # Create temporary file
@@ -187,28 +291,32 @@ class Application < Sinatra::Base
         es.rewind
         temp.write es.read
         es.close
+        temp.flush
       end
 
       # Store the tempfile into the hash
-      $files[temp.path] = { tempfile: temp, time: Time.now }
+      file_uuid = SecureRandom.uuid
+      $files[file_uuid] = { tempfile: temp, time: Time.now, filename: filename }
 
       # Encode the file information into a query string
-      query = URI.encode_www_form([[:filename, filename], [:path, temp.path]])
+      query = URI.encode_www_form([[:uuid, file_uuid]])
 
-      out << SSE.event(:progress, '100%')      # We're done, so set progress to 100%
-      out << SSE.event(:url, "/file?#{query}") # And give the client the file link
+      er.fire_event :progress, '100%'       # We're done, so set progress to 100%
+      er.fire_event :url, "/file?#{query}"  # And give the client the file link
 
-      out << SSE.event(:close, true)           # Close the EventSource
-    end
+    ensure
+      er.fire_event :close, true  # Close the EventSource
+    end; end
   end
 
   # Download the generated file
   get '/file' do
-    path, filename = params[:path], params[:filename]
-    halt 403, render('errors/403') unless path && filename
+    magic_error 403 unless params[:uuid]
+    file = $files[params[:uuid]]
+    magic_error 404 unless file && File.file?(file[:tempfile].path)
 
-    $to_delete << path # Add the path to our list of files to cleanup
-    send_file path, filename: filename, type: 'application/epub+zip'
+    $to_delete << params[:uuid] # Add the path to our list of files to cleanup
+    send_file file[:tempfile].path, filename: file[:filename], type: 'application/epub+zip'
   end
 
   # Fancy adapter for fanfiction.net's URLs
@@ -217,17 +325,25 @@ class Application < Sinatra::Base
     redirect "/get?#{query}"
   end
 
+  # Error pages, because why not.
+  get '/errors/:id' do
+    code = Integer params[:id] rescue notfound
+
+    if DEFAULT_ERROR_MESSAGES.include? code
+      # Modify the existing status code in the response
+      catch(:halt) { magic_error code }.tap { |r| r[0] = 200 }
+    else
+      not_found
+    end
+  end
+
   # 404 Page
   not_found do
-    status 404
-    html = render 'errors/404'
-    [true, false].sample ? html.gsub!(*replacements) : html
+    magic_error 404
   end
 
   # 500 Page
   error Exception do
-    status 500
-    html = render 'errors/500'
-    [true, false].sample ? html.gsub!(*replacements) : html
+    magic_error 500
   end
 end

@@ -1,7 +1,6 @@
 .row
   = form_tag '/get', class: 'col s12', method: 'POST', enctype: 'multipart/form-data' do
     = hidden_field_tag :style, value: 'light'
-    = hidden_field_tag :cover_uuid, value: SecureRandom.uuid, disabled: true
     .row
       / Input the story's URL
       .input-field.col.s9.m10.l10
@@ -38,7 +37,7 @@
 
 - content_for :footer_items do
   = ' | '
-  = link_to 'simple', '/?style=light', class: 'grey-text'
+  = link_to 'simple', '/', class: 'grey-text'
 
 - content_for :js do
   javascript:
@@ -50,7 +49,7 @@
         if (sel.value == 'URL') {
           $('#cover-file-field').fadeOut(500, function(){
             $('#cover-url-field').fadeIn(500);
-            $('input[name="cover_uuid"]').add('input[name="cover_file"]').prop('disabled', true);
+            $('input[name="cover_file"]').prop('disabled', true);
           });
           $('input[name="cover_url"]').prop('disabled', false);
           $('form').off('submit');
@@ -60,8 +59,9 @@
             $('#cover-file-field').fadeIn(1000);
             $('input[name="cover_url"]').prop('disabled', true);
           });
-          $('input[name="cover_uuid"]').add('input[name="cover_file"]').prop('disabled', false);
+          $('input[name="cover_file"]').prop('disabled', false);
           $('form').submit(function(){
+            $('.material-tooltip').remove();
             $('form').replaceWith(
                     '<div class="grey lighten-3 progress">' +
                     '<div class="black indeterminate" id=progress style="width: 0"></div>' +

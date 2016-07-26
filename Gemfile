@@ -10,6 +10,7 @@ gem 'ficrip', github: 'toroidal-code/ficrip', branch: 'master'
 gem 'concurrent-ruby', '~> 1.0.2'
 gem 'concurrent-ruby-ext'
 gem 'rufus-scheduler', '~> 3.2'
+gem 'retryable'
 
 gem 'puma'
 

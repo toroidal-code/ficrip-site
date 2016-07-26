@@ -1,6 +1,6 @@
 GIT
   remote: git://github.com/toroidal-code/ficrip.git
-  revision: c017ae051f1b3825ffdbd8323b51bdbf283d6f9c
+  revision: d3c9bd20aba4ca5ebe939905afcb7fde622f7b0a
   branch: master
   specs:
     ficrip (0.0.2)
@@ -88,6 +88,7 @@ DEPENDENCIES
   oj_mimic_json
   padrino-helpers (~> 0.13)
   puma
+  retryable
   rufus-scheduler (~> 3.2)
   sinatra (~> 1.4.7)
   slim
