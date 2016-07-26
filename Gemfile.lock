@@ -88,6 +88,7 @@ DEPENDENCIES
   oj_mimic_json
   padrino-helpers (~> 0.13)
   puma
+  retryable
   rufus-scheduler (~> 3.2)
   sinatra (~> 1.4.7)
   slim
