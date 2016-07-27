@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 require 'sinatra/base'
 require 'newrelic_rpm'
 require 'padrino-helpers'
@@ -33,33 +34,32 @@ DEFAULT_ERROR_MESSAGES = {
             'Yeah. Well, that happened. Try again later-ish?'],
     500 => ['damn.', 'well, we tried'],
     505 => ['...what?']
-}
+}.freeze
 
 # Global variables
-$files = Concurrent::Map.new
-$to_delete = Concurrent::Array.new
+$files = Concurrent::Map.new       # { 'uuid' => #File, 'uuid' => #Tempfile}
+$to_delete = Concurrent::Array.new # ['uuid', ...]
 
 # Cleanup tempfiles by checking to see
 # if they're older than an hour
 def cleanup_old_files
-  $files.each_key do |uuid|
-    if $to_delete.include?(uuid) || (Time.now - (60 * 60)) > $files[uuid][:time]
-      $files[uuid][:tempfile].close
-      $files[uuid][:tempfile].unlink if $files[uuid].respond_to?(:unlink)
-      $to_delete.delete uuid
+  # make a local copy of to_delete while simultaneously clearing the original (atomicity)
+  local_to_delete = $to_delete.slice!(0..-1)
+
+  $files.each_pair do |uuid, file|
+    if file.nil?
+      $files.delete uuid
+    elsif local_to_delete.include?(uuid) || (Time.now - 60*60) > file.ctime
+      file.close                               # Close it
+      file.unlink if file.respond_to? :unlink  # Unlink it if we can
       $files.delete uuid
     end
   end
 end
 
-# Every thirty minutes, clean up the leftover tempfiles that
-# haven't already been GC'ed
-if $scheduler_thread
-  scheduler = Rufus::Scheduler.new
-  scheduler.every '30m' do
-    cleanup_old_files
-  end
-end
+# Every twenty minutes, clean up the leftover
+# tempfiles that haven't already been GC'ed
+Rufus::Scheduler.s.every('20m') { cleanup_old_files }
 
 # This is a simple little helper
 # module for properly formatting
@@ -68,10 +68,12 @@ class EventReceiver
   attr_reader :stream
 
   # Start with the event stream
-  def initialize(stream) @stream = stream  end
+  def initialize(stream)
+    @stream = stream
+  end
 
   # Set the event name buffer to ev and maybe send data
-  def event(ev, obj=nil)
+  def event(ev, obj = nil)
     @stream << "event: #{ev}\n"
     data(obj) unless obj.nil?
     self
@@ -101,10 +103,12 @@ class EventReceiver
     self
   end
 
-  def fire_event(ev, obj=nil)
+  # Construct an event and dispatch it
+  def fire_event(ev, obj = nil)
     event(ev, obj).fire!
   end
 
+  # Construct a message and dispatch it
   def send_message(*args)
     data(*args).fire!
   end
@@ -114,7 +118,8 @@ class Object
   def randomly
     [true, false].sample ? yield(self) : self
   end
-  def with;
+
+  def with
     yield self
   end
 end
@@ -210,21 +215,18 @@ class Application < Sinatra::Base
       end
     end
 
-    if params[:cover_file]  && !params[:cover_file].empty?
+    # Write the uploaded data to a temporary file
+    if params[:cover_file] && !params[:cover_file].empty?
       tempfile = Tempfile.new( params[:cover_file][:filename] ).tap do |temp|
         temp.write params[:cover_file][:tempfile].read
         temp.rewind
       end
 
       uuid = SecureRandom.uuid
-      $files[uuid] = {
-          tempfile: tempfile,
-          filename: params[:cover_file][:filename],
-          time:     Time.now
-      }
+      $files[uuid] = tempfile
 
-      # Safety's sake since we're exposing params to the client through string interpolation
-      # in the embedded javascript in the view
+      # Safety's sake since we're exposing params to the client through
+      # string interpolation in the embedded javascript in the view
       params.delete 'cover_file' # keys are really strings? weird.
       params[:cover_uuid] = uuid
     end
@@ -239,9 +241,8 @@ class Application < Sinatra::Base
       er = EventReceiver.new out
 
       # Get the cover
-      cover = if params[:cover_uuid]
-        c = $files[params[:cover_uuid]]
-        c[:tempfile] unless c.nil?
+      cover = if params[:cover_uuid] && !params[:cover_uuid].empty?
+        $files[params[:cover_uuid]]
       elsif params[:cover_url] && !params[:cover_url].empty?
         begin
           # Try to fetch the cover from the URL
@@ -253,7 +254,6 @@ class Application < Sinatra::Base
           er.fire_event :error, magic_error("There's no cover at #{params[:cover_url]}.")
           next
         end
-      else nil
       end
 
       # Attempt to load the story
@@ -263,9 +263,9 @@ class Application < Sinatra::Base
         # If we get an ArgumentError from the fetcher, then it's an invalid ID
         er.fire_event :error, magic_error("There's no fic with storyid #{params[:story]}.")
         next
-       rescue => e
+      rescue => e
         # Otherwise, something else went wrong
-        er.fire_event(:error, magic_error(500, halt:false))
+        er.fire_event :error, magic_error(500, halt: false)
         p e and next
       end
 
@@ -284,19 +284,25 @@ class Application < Sinatra::Base
       end
 
       filename = "#{fic.author} - #{fic.title}.epub"
-      temp     = Tempfile.new filename  # Create temporary file
+
+      temp = Tempfile.new filename  # Create temporary file
+      temp.singleton_class.class_eval { attr_reader :filename }
+      temp.instance_variable_set :@filename, filename
 
       # Write the epub to the tempfile
       epub.generate_epub_stream.tap do |es|
-        es.rewind
-        temp.write es.read
-        es.close
-        temp.flush
+        es.rewind          # Rewind
+        temp.write es.read # Copy
+        es.close           # Close
+        temp.flush         # Flush
       end
+
+      # Only mark the cover for deletion once we've written the epub to disk
+      $to_delete << params[:cover_uuid] if params[:cover_uuid] && !params[:cover_uuid].empty?
 
       # Store the tempfile into the hash
       file_uuid = SecureRandom.uuid
-      $files[file_uuid] = { tempfile: temp, time: Time.now, filename: filename }
+      $files[file_uuid] = temp
 
       # Encode the file information into a query string
       query = URI.encode_www_form([[:uuid, file_uuid]])
@@ -313,10 +319,10 @@ class Application < Sinatra::Base
   get '/file' do
     magic_error 403 unless params[:uuid]
     file = $files[params[:uuid]]
-    magic_error 404 unless file && File.file?(file[:tempfile].path)
+    magic_error 404 unless file && File.file?(file.path)
 
-    $to_delete << params[:uuid] # Add the path to our list of files to cleanup
-    send_file file[:tempfile].path, filename: file[:filename], type: 'application/epub+zip'
+    $to_delete << params[:uuid] # Add the uuid to our list of files to cleanup
+    send_file file.path, filename: file.filename, type: 'application/epub+zip'
   end
 
   # Fancy adapter for fanfiction.net's URLs
