@@ -104,7 +104,7 @@ class EventReceiver
   end
 
   # Construct an event and dispatch it
-  def fire_event(ev, obj = nil)
+  def fire_event(ev, obj = true)
     event(ev, obj).fire!
   end
 
@@ -270,8 +270,8 @@ class Application < Sinatra::Base
       end
 
       # Update the download page with title/author information
-      er.fire_event :info, { title:  link_to(fic.title, fic.url),
-                             author: link_to(fic.author, fic.author_url) }.to_json
+      er.fire_event :info, { title:  link_to(fic.title, fic.url, target: '_blank'),
+                             author: link_to(fic.author, fic.author_url, target: '_blank') }.to_json
 
       epub_version = Integer params[:epub_version] rescue 2
       epub_version = 2 unless [2,3].include? epub_version
@@ -307,11 +307,11 @@ class Application < Sinatra::Base
       # Encode the file information into a query string
       query = URI.encode_www_form([[:uuid, file_uuid]])
 
+      er.fire_event :backbutton
       er.fire_event :progress, '100%'       # We're done, so set progress to 100%
       er.fire_event :url, "/file?#{query}"  # And give the client the file link
-
     ensure
-      er.fire_event :close, true  # Close the EventSource
+      er.fire_event :close                  # Close the EventSource
     end; end
   end
 

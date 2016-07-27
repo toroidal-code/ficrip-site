@@ -3,6 +3,12 @@
   .progress.grey.lighten-3
     #progress.determinate.black style='width: 0%'
 
+- content_for :footer do
+  .footer-copyright.white
+    .container.center-align.grey-text
+      #footeritem= link_to 'by katherine whitlock', 'about', class: 'grey-text', target: '_blank'
+
+
 - content_for :js do
   = javascript_include_tag 'eventsource.min'
   javascript:
@@ -36,7 +42,15 @@
       es.addEventListener('url', function (e) { console.log(e.data); window.location = e.data; });
 
       // Close the connection
-      es.addEventListener('close', function (e) { if (e.data === 'true') es.close(); });
+      es.addEventListener('close', function () { es.close(); });
+
+      // Add a back button when download is complete
+      es.addEventListener('backbutton', function () {
+        $('#footeritem').fadeOut(1000, function () {
+          $('#footeritem').replaceWith('#{ link_to "back", "/", class: "grey-text" }');
+          $('#footeritem').fadeIn(1000);
+        });
+      });
 
       // Update the page with the title/author info
       es.addEventListener('info', function (e) {
