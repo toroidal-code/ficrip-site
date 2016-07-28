@@ -1,0 +1,6 @@
+.center
+  h1= $download_count.value
+  h3= ActiveSupport::NumberHelper.number_to_human_size $download_size.value
+    
+
+- content_for :footer

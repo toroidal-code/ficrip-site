@@ -19,6 +19,10 @@
       // Connect to the server
       var es = new EventSource('/generate' + '?' + $.param(params));
 
+      // We don't want the user reloading and regenerating the same file,
+      // so set our history to the homepage.
+      history.replaceState({ uuid: params.uuid }, 'ficrip', '/');
+
       // Report an error
       es.addEventListener('error', function (e) {
         $('#content').fadeOut(1000, function() {

@@ -1,16 +1,26 @@
 # frozen_string_literal: true
+# Core
 require 'sinatra/base'
 require 'newrelic_rpm'
-require 'padrino-helpers'
-require 'rufus-scheduler'
-require 'retryable'
-require 'concurrent/map'
-require 'concurrent/array'
-
-require 'slim'
-require 'oj_mimic_json'
 require 'ficrip'
 
+# Helpers
+require 'active_support/dependencies/autoload'
+require 'active_support/number_helper'
+require 'padrino-helpers'
+require 'slim'
+
+# Concurrent
+require 'concurrent/atomic/atomic_fixnum'
+require 'concurrent/array'
+require 'concurrent/map'
+
+# Extras
+require 'rufus-scheduler'
+require 'oj_mimic_json'
+require 'retryable'
+
+# Stdlib
 require 'open-uri'
 
 # Global settings
@@ -18,7 +28,7 @@ Slim::Engine.disable_option_validator!
 
 # Constants
 FANFICTION_STORY_REGEX_STRING = "^(https?://)?(www.)?fanfiction.net/s/\\d+(?!\\w)(/.*)?$|^\\d+$"
-FANFICTION_STORY_REGEX = Regexp.compile('fanfiction.net/s/(\d+)(?!\w+)(/.*)?$|^(\d+)$',true)
+FANFICTION_STORY_REGEX = %r{ fanfiction.net/s/(\d+)(?!\w+)(/.*)?$ | ^(\d+)$ }i
 DEFAULT_ERROR_MESSAGES = {
     400 => ['garbage in, garbage out'],
     403 => ['nope', '(nice try, though)'],
@@ -39,6 +49,8 @@ DEFAULT_ERROR_MESSAGES = {
 # Global variables
 $files = Concurrent::Map.new       # { 'uuid' => #File, 'uuid' => #Tempfile}
 $to_delete = Concurrent::Array.new # ['uuid', ...]
+$download_size = Concurrent::AtomicFixnum.new
+$download_count = Concurrent::AtomicFixnum.new
 
 # Cleanup tempfiles by checking to see
 # if they're older than an hour
@@ -139,16 +151,18 @@ class Application < Sinatra::Base
   end
 
   # The source-to-source transformations to switch themes
-  switch_themes = -> (page) do
-    page.gsub(/(white|black|waves-light|light|dark)/, {
-        'white'       => 'black', 'black' => 'white',
-        'light'       => 'dark', 'dark' => 'light',
-        'waves-light' => ''
-    })
-  end and define_method(:switch_themes, &switch_themes)
+  switch_themes = lambda do |page|
+    page.gsub(/(white|black|waves-light|light|dark)/,
+              'white'       => 'black', 'black' => 'white',
+              'light'       => 'dark', 'dark' => 'light',
+              'waves-light' => '')
+  end
+
+  define_method(:switch_themes, &switch_themes)
 
   # Super fancy error handler
-  def magic_error(code_or_msg = nil, code_or_msg2 = nil, code: nil, msg: nil, generic: false, halt: true)
+  def magic_error(code_or_msg = nil, code_or_msg2 = nil,
+                  code: nil, msg: nil, generic: false, halt: true)
     [code_or_msg2, code_or_msg].each do |v|
       if v.is_a? Array
         msg = v
@@ -230,6 +244,21 @@ class Application < Sinatra::Base
       params.delete 'cover_file' # keys are really strings? weird.
       params[:cover_uuid] = uuid
     end
+    query = URI.encode_www_form params
+    redirect "/get?#{query}"
+  end
+
+  get '/get' do
+    magic_error 400 unless params[:story]
+
+    # Try to parse the StoryID ...again
+    unless (match = params[:story].match(FANFICTION_STORY_REGEX)).nil?
+      begin
+        Integer match.captures.reject(&:nil?).first
+      rescue
+        magic_error 400, ['garbage in, garbage out', '(your URL or ID is invalid)']
+      end
+    end
 
     html = render 'download', layout: :main
     (params[:style] || %w(light dark).sample) == 'dark' ? html.with(&switch_themes) : html
@@ -242,7 +271,7 @@ class Application < Sinatra::Base
 
       # Get the cover
       cover = if params[:cover_uuid] && !params[:cover_uuid].empty?
-        $files[params[:cover_uuid]]
+        $files.get params[:cover_uuid]
       elsif params[:cover_url] && !params[:cover_url].empty?
         begin
           # Try to fetch the cover from the URL
@@ -305,7 +334,7 @@ class Application < Sinatra::Base
       $files[file_uuid] = temp
 
       # Encode the file information into a query string
-      query = URI.encode_www_form([[:uuid, file_uuid]])
+      query = URI.encode_www_form(uuid: file_uuid)
 
       er.fire_event :backbutton
       er.fire_event :progress, '100%'       # We're done, so set progress to 100%
@@ -318,8 +347,12 @@ class Application < Sinatra::Base
   # Download the generated file
   get '/file' do
     magic_error 403 unless params[:uuid]
-    file = $files[params[:uuid]]
+    file = $files.get params[:uuid]
     magic_error 404 unless file && File.file?(file.path)
+
+    # Statistics
+    $download_count.increment
+    $download_size.increment File.size(file.path)
 
     $to_delete << params[:uuid] # Add the uuid to our list of files to cleanup
     send_file file.path, filename: file.filename, type: 'application/epub+zip'
@@ -327,13 +360,22 @@ class Application < Sinatra::Base
 
   # Fancy adapter for fanfiction.net's URLs
   get '/s/:storyid/?:ch?/?:title?/?' do
-    query = URI.encode_www_form([[:storyid, params[:storyid]]])
-    redirect "/get?#{query}"
+    query = URI.encode_www_form(story: params[:storyid])
+    redirect "/get?#{query}", 307
+  end
+
+  get '/stats' do
+    render('stats').randomly(&switch_themes)
+  end
+
+  get '/stats.json', provides: ['text/html', 'text/json'] do
+    Hash[downloads: { size:  $download_size.value,
+                      count: $download_count.value }].to_json
   end
 
   # Error pages, because why not.
   get '/errors/:id' do
-    code = Integer params[:id] rescue notfound
+    code = Integer params[:id] rescue not_found
 
     if DEFAULT_ERROR_MESSAGES.include? code
       # Modify the existing status code in the response
