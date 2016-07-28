@@ -56,7 +56,9 @@ $download_count = Concurrent::AtomicFixnum.new
 # if they're older than an hour
 def cleanup_old_files
   # make a local copy of to_delete while simultaneously clearing the original (atomicity)
-  local_to_delete = $to_delete.slice!(0..-1).to_a
+  # local_to_delete = $to_delete.slice!(0..-1).to_a
+  local_to_delete = []
+  $to_delete.delete_if { |v| local_to_delete << v; true }
 
   $files.each_pair do |uuid, file|
     if file.nil?
