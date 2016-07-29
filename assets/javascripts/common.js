@@ -24,6 +24,7 @@ var formSubmitSuccessCallback = function (data) {
 var formSubmit = function (element) {
   return function (event) {
     event.preventDefault();
+    console.log(element.serialize());
     $('.material-tooltip').remove();
     $.ajax({
       url: '/get',  // server script to process data
@@ -32,7 +33,7 @@ var formSubmit = function (element) {
       // Ajax events
       success: formSubmitSuccessCallback,
       error: function () { element.submit(); }
-    }, 'json');
+    });
     return false;
   };
 };

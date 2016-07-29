@@ -53,10 +53,36 @@ $(document).ready(function() {
 
       if (file.name.length < 1) {
       } else {
+        $(':submit').off('click');
+
+        var xhrCallback = function () {  // custom xhr
+          var myXhr = $.ajaxSettings.xhr();
+          if (myXhr.upload) { // if upload property exists
+            $('form').replaceWith(progressBarTemplate());
+
+            // progressbar
+            myXhr.upload.addEventListener('progress', function (event) {
+              if (event.lengthComputable) {
+                var percentComplete = Math.round(event.loaded / event.total);
+                var progressbar = $('#progress');
+                if (progressbar.hasClass('indeterminate')) {
+                  progressbar.removeClass('indeterminate').addClass('determinate');
+                }
+                progressbar.css('width', percentComplete.toString() + '%');
+              }
+            }, false);
+          }
+          return myXhr;
+        };
+
         $(':submit').click(function (event) {
           $('.material-tooltip').remove();
           event.preventDefault();
           var formData = new FormData($('#advanced-form')[0]);
+          for(var pair of formData.entries()) {
+            console.log(pair[0]+ ', '+ pair[1]);
+          }
+          console.log($('#advanced-form'));
           $.ajax({
             url: '/get',  // server script to process data
             type: 'POST',
@@ -64,31 +90,20 @@ $(document).ready(function() {
             cache: false,
             contentType: false,
             processData: false,
-            xhr: function () {  // custom xhr
-              myXhr = $.ajaxSettings.xhr();
-              if (myXhr.upload) { // if upload property exists
-                $('form').replaceWith(progressBarTemplate());
-                // progressbar
-                myXhr.upload.addEventListener('progress', function (oEvent) {
-                  if (oEvent.lengthComputable) {
-                    var percentComplete = oEvent.loaded / oEvent.total;
-                    var progressbar = $('#progress');
-                    if (progressbar.hasClass('indeterminate')) {
-                      progressbar.removeClass('indeterminate').addClass('determinate');
-                    }
-                    progressbar.css('width', percentComplete.toString() + '%');
-                  }
-                }, false);
-              }
-              return myXhr;
-            },
-            // Ajax events
+            xhr: xhrCallback,
             success: formSubmitSuccessCallback,
-            error: function () { $('form').submit(); }
-          }, 'json');
+            error: function (event) {
+              console.log(event);
+              $('form').submit();
+            }
+          });
           return false;
         });
       }
     });
   }
+
+  // Disconnect the original submit handler
+  $(':submit').off('click');
+  $(':submit').click(formSubmit($('#advanced-form')));
 });
