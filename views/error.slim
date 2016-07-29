@@ -1,14 +1,15 @@
-.center
-  - if defined?(generic) && generic
-    h1 Error
-  - else
-    h1= link_to status, "https://httpstatuses.com/#{status}"
+.container.valign.black-text
+  .center
+    - if defined?(generic) && generic
+      h1 Error
+    - else
+      h1= link_to status, "https://httpstatuses.com/#{status}"
 
-  - if defined?(message) && !message.empty?
-    h3== message[0]
-    h5== message[1] if message.count > 1
-  - else
-    h3 huh.
-    h5 well, that's not supposed to happen
+    - if defined?(message) && !message.empty?
+      h3== message[0]
+      h5== message[1] if message.count > 1
+    - else
+      h3 huh.
+      h5 well, that's not supposed to happen
 
 - content_for :footer

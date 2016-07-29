@@ -11,6 +11,7 @@ html
     meta name="description" content="An opinionated fanfiction.net downoloader"
     meta name="keywords" content="fanfiction, download"
     meta name="viewport" content="width=device-width, initial-scale=1.0"
+    meta name="theme" content="light"
 
     / External Stylesheets
     = stylesheet_link_tag 'https://cdnjs.cloudflare.com/ajax/libs/material-design-iconic-font/2.2.0/css/material-design-iconic-font.min.css'
@@ -27,6 +28,19 @@ html
       main { height: 75%; }
       .bottom-spacer { flex: 1; }
       a { color: black; }
+      #imglink { padding-top: 40px; }
+      input[type=url]:focus:not([readonly]),
+      input[type=text]:focus:not([readonly]) {
+          border-bottom: 1px solid black;
+          box-shadow: 0 1px 0 0 black;
+      }
+      .backdrop { background-color: black; }
+      .material-tooltip { color: white; }
+      .dropdown-content li>span { color: #000; }
+      input[type=text].valid{
+        border-bottom: 1px solid black;
+        box-shadow: 0 1px 0 0 black;
+      }
 
     / Partial's extra styles
     - if content_for? :stylesheets
@@ -37,21 +51,21 @@ html
 
     / Primary content
     main.valign-wrapper
-      .container.valign.black-text
-        #content== content_for?(:content) ? yield_content(:content) : yield
+      == content_for?(:main) ? yield_content(:main) : yield
 
     / Spacer
     .bottom-spacer
 
     / Footer
-    footer.page-footer.white
-      - if content_for?(:footer)
-        == yield_content(:footer)
-      - else
+    - if content_for?(:footer)
+      == yield_content(:footer)
+    - else
+      footer.page-footer.white
         .footer-copyright.white
           .container.center-align.grey-text
-            = link_to 'by katherine whitlock', 'about', class: 'grey-text'
-            == yield_content(:footer_items) if content_for(:footer_items)
+            = link_to 'by katherine whitlock', 'about', class: 'grey-text', id: 'about-link'
+            - if content_for(:footer_items)
+              span#footer-items== yield_content(:footer_items)
 
     / External javascript
     = javascript_include_tag 'https://code.jquery.com/jquery-2.2.4.min.js'

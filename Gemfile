@@ -15,7 +15,13 @@ gem 'retryable'
 gem 'puma'
 
 gem 'slim'
+gem 'sprockets'
+gem 'uglifier'
 gem 'oj'
 gem 'oj_mimic_json'
 
 gem 'newrelic_rpm'
+
+env :development do
+  gem 'rake'
+end

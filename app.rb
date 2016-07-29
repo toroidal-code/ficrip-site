@@ -8,7 +8,12 @@ require 'ficrip'
 require 'active_support/dependencies/autoload'
 require 'active_support/number_helper'
 require 'padrino-helpers'
+require 'sprockets'
+require 'uglifier'
 require 'slim'
+
+# Local Helpers
+require_relative 'lib/event_receiver'
 
 # Concurrent
 require 'concurrent/atomic/atomic_fixnum'
@@ -75,59 +80,6 @@ end
 # tempfiles that haven't already been GC'ed
 Rufus::Scheduler.s.every('20m') { cleanup_old_files }
 
-# This is a simple little helper
-# module for properly formatting
-# Server-Sent Event messages
-class EventReceiver
-  attr_reader :stream
-
-  # Start with the event stream
-  def initialize(stream)
-    @stream = stream
-  end
-
-  # Set the event name buffer to ev and maybe send data
-  def event(ev, obj = nil)
-    @stream << "event: #{ev}\n"
-    data(obj) unless obj.nil?
-    self
-  end
-
-  # Append obj to the data buffer
-  def data(obj)
-    @stream << "data: #{obj}\n"
-    self
-  end
-
-  # Set the event stream's last event ID
-  def id(val)
-    @stream << "id: #{val}\n"
-    self
-  end
-
-  # Set the event stream's reconnection time
-  def retry(num)
-    @stream << "retry: #{num}\n"
-    self
-  end
-
-  # Dispatch the event
-  def fire!
-    @stream << "\n"
-    self
-  end
-
-  # Construct an event and dispatch it
-  def fire_event(ev, obj = true)
-    event(ev, obj).fire!
-  end
-
-  # Construct a message and dispatch it
-  def send_message(*args)
-    data(*args).fire!
-  end
-end
-
 class Object
   def randomly
     [true, false].sample ? yield(self) : self
@@ -149,8 +101,14 @@ class Application < Sinatra::Base
     set session_secret: SecureRandom.hex(32)
     set protect_from_csrf: true # enable authenticity_token in forms
     set server: :puma
+    set environment: Sprockets::Environment.new
+
     use Rack::Protection, except: :http_origin
   end
+
+  ASSET_FOLDERS.merge! js: 'assets'
+  environment.append_path 'assets/javascripts'
+  environment.js_compressor  = :uglify
 
   # The source-to-source transformations to switch themes
   switch_themes = lambda do |page|
@@ -192,13 +150,23 @@ class Application < Sinatra::Base
   # The index page
   ['/', '/simple/?'].each do |path|
     get(path) do
-      render('index', layout: :main).randomly(&switch_themes)
+      if request.xhr?
+        html = render('simple', layout: false)
+        (params[:style] || 'light') == 'dark' ? html.with(&switch_themes) : html
+      else
+        render('simple', layout: :main).randomly(&switch_themes)
+      end
     end
   end
 
   # Advanced options
   get '/advanced/?' do
-    render('advanced', layout: :main).randomly(&switch_themes)
+    if request.xhr?
+      html = render('advanced', layout: false)
+      (params[:style] || 'light') == 'dark' ? html.with(&switch_themes) : html
+    else
+      render('advanced', layout: :main).randomly(&switch_themes)
+    end
   end
 
   # Light theme
@@ -213,7 +181,12 @@ class Application < Sinatra::Base
 
   # About page
   get '/about/?' do
-    render('about').randomly(&switch_themes)
+    if request.xhr?
+      html = render 'about', layout: false
+      (params[:style] || 'light') == 'dark' ? html.with(&switch_themes) : html
+    else
+      render('about').randomly(&switch_themes)
+    end
   end
 
   # Get a fanfic via post. Basically the same as get, but with file uploading
@@ -385,6 +358,12 @@ class Application < Sinatra::Base
     else
       not_found
     end
+  end
+
+  # get assets
+  get "/assets/*" do
+    env["PATH_INFO"].sub!("/assets", "")
+    settings.environment.call(env)
   end
 
   # 404 Page

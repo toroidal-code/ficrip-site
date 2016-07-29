@@ -1,4 +1,4 @@
-.row
+#main-row.row
   = form_tag '/get', class: 'col s12', method: 'POST' do
     = hidden_field_tag :style, value: 'light'
     .row
@@ -10,4 +10,8 @@
 
 - content_for :footer_items do
   = ' | '
-  = link_to 'advanced', '/advanced', class: 'grey-text'
+  = link_to 'advanced', '/advanced', class: 'grey-text', id: 'advanced-link'
+  = link_to 'simple', '/simple', class: 'grey-text', id: 'simple-link', style: 'display: none'
+
+- content_for :js do
+    = javascript_include_tag 'index'

@@ -1,4 +1,4 @@
-.row
+#main-row.row
   = form_tag '/get', class: 'col s12', method: 'POST', enctype: 'multipart/form-data' do
     = hidden_field_tag :style, value: 'light'
     .row
@@ -40,44 +40,4 @@
   = link_to 'simple', '/', class: 'grey-text'
 
 - content_for :js do
-  javascript:
-    $(document).ready(function() {
-      $('#source-selector').find('option[value="URL"]').prop('selected', true);
-      $('select').material_select();
-
-      window.swapCoverField = function (sel){
-        if (sel.value == 'URL') {
-          $('#cover-file-field').fadeOut(500, function(){
-            $('#cover-url-field').fadeIn(500);
-            $('input[name="cover_file"]').prop('disabled', true);
-          });
-          $('input[name="cover_url"]').prop('disabled', false);
-          $('form').off('submit');
-
-        } else if (sel.value == 'Upload') {
-          $('#cover-url-field').fadeOut(500, function(){
-            $('#cover-file-field').fadeIn(1000);
-            $('input[name="cover_url"]').prop('disabled', true);
-          });
-          $('input[name="cover_file"]').prop('disabled', false);
-          $('form').submit(function(){
-            $('.material-tooltip').remove();
-            $('form').replaceWith(
-                    '<div class="grey lighten-3 progress">' +
-                    '<div class="black indeterminate" id=progress style="width: 0"></div>' +
-                    '</div>'
-            );
-          });
-        }
-      };
-
-      $('.dropdown-button').dropdown({
-        inDuration: 300,
-        outDuration: 225,
-        constrain_width: false, // Does not change width of dropdown to that of the activator
-        hover: true, // Activate on hover
-        gutter: 0, // Spacing from edge
-        belowOrigin: false, // Displays dropdown below the button
-        alignment: 'left' // Displays dropdown with edge aligned to the left of button
-      });
-    });
+  = javascript_include_tag 'advanced'
