@@ -16,6 +16,7 @@ gem 'puma'
 
 gem 'slim'
 gem 'sprockets'
+gem 'sprockets-helpers'
 gem 'uglifier'
 gem 'sass'
 gem 'oj'

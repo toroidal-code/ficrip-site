@@ -40,7 +40,7 @@ namespace :assets do
   desc 'Precompile assets'
   task :precompile do
     environment = Application.settings.sprockets
-    manifest = Sprockets::Manifest.new(environment.index, Application.settings.assets_path)
+    manifest = Sprockets::Manifest.new(environment.index, File.join(Application.settings.assets_path, 'manifesto.json'))
     manifest.compile(Application.settings.assets_precompile)
   end
 

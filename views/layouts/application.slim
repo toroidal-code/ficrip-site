@@ -14,11 +14,33 @@ html
     meta name="theme" content="light"
 
     / External stylesheets
-    = stylesheet_link_tag 'https://cdnjs.cloudflare.com/ajax/libs/material-design-iconic-font/2.2.0/css/material-design-iconic-font.min.css'
-    = stylesheet_link_tag 'https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.6/css/materialize.min.css', media: 'screen,projection'
+    link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/material-design-iconic-font/2.2.0/css/material-design-iconic-font.min.css'
+    link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.6/css/materialize.min.css' media='screen,projection'
 
     / Internal stylesheets
-    = stylesheet_link_tag 'application_white'
+    css:
+      body {
+        position: absolute;
+        top: 0; bottom: 0; left: 0; right: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      main { height: 75%; }
+      .bottom-spacer { flex: 1; }
+      a { color: black; }
+      #imglink { padding-top: 40px; }
+      input[type=url]:focus:not([readonly]),
+      input[type=text]:focus:not([readonly]) {
+        border-bottom: 1px solid black;
+        box-shadow: 0 1px 0 0 black;
+      }
+      .backdrop {background-color: black;}
+      .material-tooltip {color: white;}
+      .dropdown-content li > span {color: #000;}
+      input[type=text].valid {
+        border-bottom: 1px solid black;
+        box-shadow: 0 1px 0 0 black;
+      }
 
   / Main body
   body.white
@@ -42,7 +64,7 @@ html
               span#footer-items== yield_content(:footer_items)
 
     / Hosted javascript
-    = javascript_include_tag 'application'
+    = javascript_tag 'application'
 
     / Partials' javascript
     == yield_content(:js) if content_for? :js

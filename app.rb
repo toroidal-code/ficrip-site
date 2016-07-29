@@ -2,14 +2,17 @@
 # Core
 require 'sinatra/base'
 require 'newrelic_rpm'
+require 'sprockets'
 require 'ficrip'
 
 # Helpers
 require 'active_support/dependencies/autoload'
 require 'active_support/number_helper'
 require 'padrino-helpers'
-require 'sprockets'
+require 'sprockets-helpers'
+require 'sinatra/sprockets/helpers'
 require 'uglifier'
+require 'sass'
 require 'slim'
 
 # Local Helpers
@@ -94,6 +97,8 @@ end
 # noinspection ALL
 class Application < Sinatra::Base
   register Padrino::Helpers
+  register Sinatra::Sprockets::Helpers
+
 
   configure do
     enable :sessions
@@ -102,27 +107,30 @@ class Application < Sinatra::Base
     set protect_from_csrf: true # enable authenticity_token in forms
     set server: :puma
     set sprockets: (Sprockets::Environment.new(root) { |env| env.logger = Logger.new(STDOUT) })
-    set assets_path: -> { File.join(public_folder, "assets") }
+    set assets_prefix: '/assets'
+    set digest_assets: true
+    set assets_path: -> { File.join(public_folder, 'assets') }
     set assets_precompile: %w(application.js application.css *.png *.jpg *.svg *.eot *.ttf *.woff)
+    set static_cache_control: [:public, max_age: 60 * 60 * 24 * 365]
 
     use Rack::Protection, except: :http_origin
 
-
     ASSET_FOLDERS.merge! js: 'assets', css: 'assets'
-    sprockets.append_path 'assets/javascripts'
-    sprockets.append_path 'assets/stylesheets'
-    #sprockets.js_compressor  = :uglify
-    #sprockets.css_compressor  = :scss
+    sprockets.append_path File.join(root, 'assets', 'stylesheets')
+    sprockets.append_path File.join(root, 'assets', 'javascripts')
+    sprockets.append_path File.join(root, 'assets', 'images')
     sprockets.cache = Sprockets::Cache::MemoryStore.new 1000 # FileStore.new './tmp'
 
-
-
+    configure_sprockets_helpers do |config|
+      config.debug       = false #development?
+      config.digest      = true
+      config.manifest    = Sprockets::Manifest.new(sprockets, File.join(assets_path, 'manifesto.json')) # if production?
+    end
   end
 
-
   configure :production do
-    set :assets_precompile, %w(application.js application.css *.png *.jpg *.svg *.eot *.ttf *.woff)
-
+    sprockets.js_compressor  = :uglify
+    sprockets.css_compressor  = :scss
   end
 
   # The source-to-source transformations to switch themes
@@ -380,7 +388,6 @@ class Application < Sinatra::Base
     end
   end
 
-  # get assets
   get "/assets/*" do
     env["PATH_INFO"].sub!(%r{^/assets}, '')
     settings.sprockets.call(env)

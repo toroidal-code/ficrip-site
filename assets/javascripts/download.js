@@ -1,3 +1,5 @@
+//=requires 'eventsource'
+
 $(document).ready(function () {
   $.fn.exists = function () { return this.length !== 0;  };
   var params = window.params;

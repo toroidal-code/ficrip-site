@@ -4,6 +4,15 @@ $(document).ready(function(){
   var theme = $('meta[name=theme]').attr('content');
   var color = theme === 'light' ? 'white' : 'black';
 
+  var afterLoad = function() {
+    $('.tooltipped').tooltip();
+    // Reset the handlers
+    $('#advanced-link').click(advancedlinkCallback);
+    $('#simple-link').click(simplelinkCallback);
+    $('#about-link').click(aboutlinkCallback);
+    $(':submit').click(formSubmit($('#simple-form')));
+  };
+
   // Advanced-link AJAX event
   var advancedlinkCallback = function (event) {
     event.preventDefault();
@@ -16,6 +25,7 @@ $(document).ready(function(){
             dataType: "script",
             error: function() { window.location = '/advanced' }
           });
+          afterLoad();
           $('main').add('#simple-link').fadeIn(650);
         });
       },
@@ -36,15 +46,12 @@ $(document).ready(function(){
         $('main').add('#simple-link').fadeOut(600).promise().done(function() {
           $('#main-row').replaceWith(data);
           $('main').add('#advanced-link').fadeIn(650);
+          $('.tooltipped').tooltip();
         });
       },
-      error: function () {
-        console.log('Ajax load failed; falling back to url redirection.');
-        window.location = '/simple'
-      }
+      error: function () { window.location = '/simple' }
     });
   };
-  $('#simple-link').click(simplelinkCallback);
 
   var aboutlinkCallback = function (event) {
     event.preventDefault();
@@ -67,13 +74,9 @@ $(document).ready(function(){
           $('#back-link').click(backlinkCallback);
         }).fadeIn(750);
       },
-      error: function () {
-        console.log('Ajax load failed; falling back to url redirection.');
-        window.location = '/about'
-      }
+      error: function () { window.location = '/about' }
     });
   };
-  $('#about-link').click(aboutlinkCallback);
 
   var previousMain = null;
   var previousFooter = null;
@@ -82,12 +85,9 @@ $(document).ready(function(){
     $('body').fadeOut(750, function () {
       $('main').html(previousMain);
       $('footer').html(previousFooter);
-
-      // Reset the handlers
-      $('#advanced-link').click(advancedlinkCallback);
-      $('#simple-link').click(simplelinkCallback);
-      $('#about-link').click(aboutlinkCallback);
+      afterLoad();
     }).fadeIn(750);
   };
-  $(':submit').click(formSubmit($('#simple-form')));
+
+  afterLoad();
 });
