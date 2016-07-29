@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 # Core
 require 'sinatra/base'
-require 'newrelic_rpm'
 require 'ficrip'
 
 # Helpers

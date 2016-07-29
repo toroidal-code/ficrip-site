@@ -17,5 +17,3 @@ gem 'puma'
 gem 'slim'
 gem 'oj'
 gem 'oj_mimic_json'
-
-gem 'newrelic_rpm'

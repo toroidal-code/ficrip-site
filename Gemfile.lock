@@ -40,7 +40,6 @@ GEM
     mimemagic (0.3.1)
     mini_portile2 (2.1.0)
     minitest (5.9.0)
-    newrelic_rpm (3.16.0.318)
     nokogiri (1.6.8)
       mini_portile2 (~> 2.1.0)
       pkg-config (~> 1.1.7)
@@ -83,7 +82,6 @@ DEPENDENCIES
   concurrent-ruby (~> 1.0.2)
   concurrent-ruby-ext
   ficrip!
-  newrelic_rpm
   oj
   oj_mimic_json
   padrino-helpers (~> 0.13)
