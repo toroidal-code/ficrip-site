@@ -19,27 +19,26 @@ $(document).ready(function () {
 
   // Update progressbar
   es.addEventListener('progress', function (e) {
-    var p = $('#progress');
     if (e.data === 'null') {
-      p.removeClass('determinate').addClass('indeterminate');
-    } else if ( p.hasClass('indeterminate')) {
-      p.removeClass('indeterminate').addClass('determinate').css('width', e.data);
+      $('#progress').removeClass('determinate').addClass('indeterminate');
+    } else if ( $('#progress').hasClass('indeterminate')) {
+      $('#progress').removeClass('indeterminate').addClass('determinate').css('width', e.data);
     } else {
-      p.css('width', e.data);
+      $('#progress').css('width', e.data);
     }
   });
 
   // Navigate to new URL
-  es.addEventListener('url', function (e) { console.log(e.data); window.location = e.data; });
+  es.addEventListener('url', function (e) { window.location = e.data; });
 
   // Close the connection
   es.addEventListener('close', function () { es.close(); });
 
   // Add a back button when download is complete
   es.addEventListener('backbutton', function () {
-    $('#footeritem').fadeOut(1000, function () {
-      $('#footeritem').replaceWith('<a href="/" class="grey-text">back</a>');
-      $('#footeritem').fadeIn(1000);
+    $('#about-link').fadeOut(1000, function () {
+      $('#about-link').replaceWith('<a href="/" class="grey-text" id="back-link">back</a>');
+      $('#about-link').fadeIn(1000);
     });
   });
 
@@ -51,24 +50,15 @@ $(document).ready(function () {
       $('#subtitle').replaceWith('<span id="subtitle" style="display: none">&nbsp; by ' + info.author + '</span>');
     };
 
-    var mf = $('main').add('footer');
-    var ts = $('#title').add('#subtitle');
     var fadeInTitleSubtitle = function () {
       replaceTitleSubtitle();
-      ts = $('#title').add('#subtitle');
-      if (!mf.is('visible')) {
-        ts = $('main').add('footer').add('#title').add('#subtitle');
-      }
-      ts.fadeIn(1000);
+      if (!$('main').add('footer').is(':visible')) {
+        $('main').add('footer').add('#title').add('#subtitle').fadeIn(1000);
+      } else { $('#title').add('#subtitle').fadeIn(1000); }
     };
 
-    if (ts.is('visible')) {
-      ts.fadeOut(1000, function () {
-        fadeInTitleSubtitle()
-      });
-    } else {
-      fadeInTitleSubtitle();
-    }
-
+    if ($('#title').add('#subtitle').is(':visible')) {
+      $('#title').add('#subtitle').fadeOut(1000, function () { fadeInTitleSubtitle(); });
+    } else { fadeInTitleSubtitle(); }
   });
 });

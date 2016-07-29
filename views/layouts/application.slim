@@ -13,38 +13,12 @@ html
     meta name="viewport" content="width=device-width, initial-scale=1.0"
     meta name="theme" content="light"
 
-    / External Stylesheets
+    / External stylesheets
     = stylesheet_link_tag 'https://cdnjs.cloudflare.com/ajax/libs/material-design-iconic-font/2.2.0/css/material-design-iconic-font.min.css'
     = stylesheet_link_tag 'https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.6/css/materialize.min.css', media: 'screen,projection'
 
-    / Internal styles
-    css:
-      body {
-        position: absolute;
-        top: 0; bottom: 0; left: 0; right: 0;
-        display: flex;
-        flex-direction: column;
-      }
-      main { height: 75%; }
-      .bottom-spacer { flex: 1; }
-      a { color: black; }
-      #imglink { padding-top: 40px; }
-      input[type=url]:focus:not([readonly]),
-      input[type=text]:focus:not([readonly]) {
-          border-bottom: 1px solid black;
-          box-shadow: 0 1px 0 0 black;
-      }
-      .backdrop { background-color: black; }
-      .material-tooltip { color: white; }
-      .dropdown-content li>span { color: #000; }
-      input[type=text].valid{
-        border-bottom: 1px solid black;
-        box-shadow: 0 1px 0 0 black;
-      }
-
-    / Partial's extra styles
-    - if content_for? :stylesheets
-      == yield_content :stylesheets
+    / Internal stylesheets
+    = stylesheet_link_tag 'application_white'
 
   / Main body
   body.white
@@ -67,9 +41,8 @@ html
             - if content_for(:footer_items)
               span#footer-items== yield_content(:footer_items)
 
-    / External javascript
-    = javascript_include_tag 'https://code.jquery.com/jquery-2.2.4.min.js'
-    = javascript_include_tag 'https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.6/js/materialize.min.js'
+    / Hosted javascript
+    = javascript_include_tag 'application'
 
-    / Internal extra javascript
+    / Partials' javascript
     == yield_content(:js) if content_for? :js

@@ -64,6 +64,7 @@ GEM
     ruby-progressbar (1.8.1)
     rubyzip (1.2.0)
     rufus-scheduler (3.2.1)
+    sass (3.4.22)
     sinatra (1.4.7)
       rack (~> 1.5)
       rack-protection (~> 1.4)
@@ -98,6 +99,7 @@ DEPENDENCIES
   rake
   retryable
   rufus-scheduler (~> 3.2)
+  sass
   sinatra (~> 1.4.7)
   slim
   sprockets

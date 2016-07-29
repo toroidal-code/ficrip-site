@@ -101,14 +101,29 @@ class Application < Sinatra::Base
     set session_secret: SecureRandom.hex(32)
     set protect_from_csrf: true # enable authenticity_token in forms
     set server: :puma
-    set environment: Sprockets::Environment.new
+    set sprockets: (Sprockets::Environment.new(root) { |env| env.logger = Logger.new(STDOUT) })
+    set assets_path: -> { File.join(public_folder, "assets") }
+    set assets_precompile: %w(application.js application.css *.png *.jpg *.svg *.eot *.ttf *.woff)
 
     use Rack::Protection, except: :http_origin
+
+
+    ASSET_FOLDERS.merge! js: 'assets', css: 'assets'
+    sprockets.append_path 'assets/javascripts'
+    sprockets.append_path 'assets/stylesheets'
+    #sprockets.js_compressor  = :uglify
+    #sprockets.css_compressor  = :scss
+    sprockets.cache = Sprockets::Cache::MemoryStore.new 1000 # FileStore.new './tmp'
+
+
+
   end
 
-  ASSET_FOLDERS.merge! js: 'assets'
-  environment.append_path 'assets/javascripts'
-  # environment.js_compressor  = :uglify
+
+  configure :production do
+    set :assets_precompile, %w(application.js application.css *.png *.jpg *.svg *.eot *.ttf *.woff)
+
+  end
 
   # The source-to-source transformations to switch themes
   switch_themes = lambda do |page|
@@ -367,8 +382,8 @@ class Application < Sinatra::Base
 
   # get assets
   get "/assets/*" do
-    env["PATH_INFO"].sub!("/assets", "")
-    settings.environment.call(env)
+    env["PATH_INFO"].sub!(%r{^/assets}, '')
+    settings.sprockets.call(env)
   end
 
   # 404 Page

@@ -1,4 +1,6 @@
 require 'puma'
+require 'rake/sprocketstask'
+require_relative 'app'
 require_relative 'misc/configuration'
 
 def fetch(*args) Configuration.instance.fetch(*args) end
@@ -31,6 +33,20 @@ namespace :puma do
   def configuration
     require 'puma/configuration'
     Puma::Configuration.new(config_file: config_file).tap(&:load)
+  end
+end
+
+namespace :assets do
+  desc 'Precompile assets'
+  task :precompile do
+    environment = Application.settings.sprockets
+    manifest = Sprockets::Manifest.new(environment.index, Application.settings.assets_path)
+    manifest.compile(Application.settings.assets_precompile)
+  end
+
+  desc 'Clean assets'
+  task :clean do
+    FileUtils.rm_rf(Application.assets_path)
   end
 end
 

@@ -1,3 +1,5 @@
+//=require 'common'
+
 $(document).ready(function(){
   var theme = $('meta[name=theme]').attr('content');
   var color = theme === 'light' ? 'white' : 'black';
@@ -10,10 +12,10 @@ $(document).ready(function(){
       success: function (data) {
         $('main').add('#advanced-link').fadeOut(600).promise().done(function() {
           $('#main-row').replaceWith(data);
-            $.ajax('assets/advanced.js', {
-              dataType: "script",
-              error: function() { window.location = '/advanced' }
-            });
+          $.ajax('assets/advanced.js', {
+            dataType: "script",
+            error: function() { window.location = '/advanced' }
+          });
           $('main').add('#simple-link').fadeIn(650);
         });
       },
@@ -87,41 +89,5 @@ $(document).ready(function(){
       $('#about-link').click(aboutlinkCallback);
     }).fadeIn(750);
   };
-
-
-  $(':submit').click(function (event) {
-    event.preventDefault();
-    $('.material-tooltip').remove();
-    var formData = $('#simple-form').serialize();
-    $.ajax({
-      url: '/get',  // server script to process data
-      type: 'POST',
-      data: formData,
-      // Ajax events
-      success: function (data) {
-        data = $.parseJSON(data);
-        window.params = data;
-        var fallbackURL = '/get' + '?' + $.param(params);
-        $.ajax('/get', {
-            data: data,
-            success: function (data) {
-              $('main').add('footer').fadeOut(600).promise().done(function() {
-                $('#page-content').replaceWith(data);
-                $('#footer-items').remove();
-                $('#about-link').attr('target', '_blank');
-                $('#title').add('#subtitle').css('visibility', 'hidden');
-              });
-              // Load the script for downloading
-              $.ajax('assets/download.js', {
-                dataType: "script",
-                error: function () { window.location = fallbackURL }
-              });
-            },
-            error: function() { window.location = fallbackURL }
-          });
-      },
-      error: function () { window.location = '/get' + '?' + formData }
-    });
-    return false;
-  });
+  $(':submit').click(formSubmit($('#simple-form')));
 });

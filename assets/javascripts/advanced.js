@@ -1,24 +1,11 @@
-// Used for white pages
+//=require 'common'
+
 $(document).ready(function() {
   var theme = $('meta[name=theme]').attr('content');
   var color = theme === 'light' ? 'white' : 'black';
 
   $('#source-selector').find('option[value="URL"]').prop('selected', true);
   $('select').material_select();
-
-  var progressBarTemplate = function () {
-    // Gross templating, but necessary
-    return '<br/>'+
-      '<div class="grey ' + theme +'en-3 progress">' +
-        '<div class="' + color + ' indeterminate" id=progress style="width: 0"></div>' +
-      '</div>'
-  };
-
-  var replaceFormWithProgressbar = function () {
-    $('form').replaceWith(
-      progressBarTemplate()
-    );
-  };
 
   window.swapCoverField = function (sel){
     if (sel.value == 'URL') {
@@ -27,8 +14,8 @@ $(document).ready(function() {
         $('input[name="cover_file"]').prop('disabled', true);
       });
       $('input[name="cover_url"]').prop('disabled', false);
-      $('form').off('submit');
-
+      $(':submit').off('click');
+      $(':submit').click(formSubmit($('#advanced-form')));
     } else if (sel.value == 'Upload') {
       $('#cover-url-field').fadeOut(500, function(){
         $('#cover-file-field').fadeIn(1000);
@@ -37,11 +24,6 @@ $(document).ready(function() {
       $('input[name="cover_file"]').prop('disabled', false);
     }
   };
-
-  $('form').submit(function(){
-    $('.material-tooltip').remove();
-    replaceFormWithProgressbar();
-  });
 
   $('.dropdown-button').dropdown({
     inDuration: 300,
@@ -52,6 +34,15 @@ $(document).ready(function() {
     belowOrigin: false, // Displays dropdown below the button
     alignment: 'left' // Displays dropdown with edge aligned to the left of button
   });
+
+
+  var progressBarTemplate = function () {
+    // Gross templating, but necessary
+    return '<br/>'+
+      '<div class="grey ' + theme +'en-3 progress">' +
+      '<div class="' + color + ' indeterminate" id=progress style="width: 0"></div>' +
+      '</div>'
+  };
 
   if (typeof(window.FormData) !== 'undefined') {
     $(':file').change(function () {
@@ -76,9 +67,7 @@ $(document).ready(function() {
             xhr: function () {  // custom xhr
               myXhr = $.ajaxSettings.xhr();
               if (myXhr.upload) { // if upload property exists
-                replaceFormWithProgressbar();
-
-
+                $('form').replaceWith(progressBarTemplate());
                 // progressbar
                 myXhr.upload.addEventListener('progress', function (oEvent) {
                   if (oEvent.lengthComputable) {
@@ -94,33 +83,8 @@ $(document).ready(function() {
               return myXhr;
             },
             // Ajax events
-            success: completeHandler = function (data) {
-              data = $.parseJSON(data);
-              window.params = data;
-              var fallbackURL = '/get' + '?' + $.param(params);
-              $.ajax('/get', {
-                data: data,
-                success: function (data) {
-                  $('main').add('footer').fadeOut(600).promise().done(function() {
-                    $('#page-content').replaceWith(data);
-                    $('#footer-items').remove();
-                    $('#about-link').attr('target', '_blank');
-                    $('#title').add('#subtitle').css('visibility', 'hidden');
-                  });
-                  $('#about-link').attr('target', '_blank');
-                  // Load the script for downloading
-                  $.ajax('assets/download.js', {
-                    dataType: "script",
-                    error: function () { window.location = fallbackURL }
-                  });
-                },
-                error: function() { window.location = fallbackURL }
-              })
-            },
-            error: errorHandler = function (data) {
-              console.log(data);
-              console.log("Something went wrong!");
-            }
+            success: formSubmitSuccessCallback,
+            error: function () { $('form').submit(); }
           }, 'json');
           return false;
         });
