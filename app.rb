@@ -108,7 +108,7 @@ class Application < Sinatra::Base
 
   ASSET_FOLDERS.merge! js: 'assets'
   environment.append_path 'assets/javascripts'
-  environment.js_compressor  = :uglify
+  # environment.js_compressor  = :uglify
 
   # The source-to-source transformations to switch themes
   switch_themes = lambda do |page|
@@ -219,8 +219,8 @@ class Application < Sinatra::Base
       params.delete 'cover_file' # keys are really strings? weird.
       params[:cover_uuid] = uuid
     end
-    query = URI.encode_www_form params
-    redirect "/get?#{query}"
+
+    request.xhr? ? params.to_json : redirect("/get?#{ URI.encode_www_form params }")
   end
 
   get '/get' do
@@ -235,8 +235,13 @@ class Application < Sinatra::Base
       end
     end
 
-    html = render 'download', layout: :main
-    (params[:style] || %w(light dark).sample) == 'dark' ? html.with(&switch_themes) : html
+    if request.xhr?
+      html = render 'download', layout: false
+      (params[:style] || 'light') == 'dark' ? html.with(&switch_themes) : html
+    else
+      html = render 'download', layout: :main
+      (params[:style] || %w(light dark).sample) == 'dark' ? html.with(&switch_themes) : html
+    end
   end
 
   # The real guts of the fetcher

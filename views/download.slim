@@ -7,9 +7,11 @@
   footer.page-footer.white
     .footer-copyright.white
       .container.center-align.grey-text
-        #footeritem= link_to 'by katherine whitlock', 'about', class: 'grey-text', target: '_blank'
+        = link_to 'by katherine whitlock', 'about', class: 'grey-text', target: '_blank'
 
 
 - content_for :js do
   = javascript_include_tag 'eventsource'
+  javascript:
+    window.params = $.parseJSON("#{js_escape_html params.to_json.html_safe}");
   = javascript_include_tag 'download'

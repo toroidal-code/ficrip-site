@@ -1,5 +1,5 @@
 #main-row.row
-  = form_tag '/get', class: 'col s12', method: 'POST' do
+  = form_tag '/get', class: 'col s12', method: 'POST', id: 'simple-form' do
     = hidden_field_tag :style, value: 'light'
     .row
       .input-field.col.s12.m10.l10
@@ -14,4 +14,4 @@
   = link_to 'simple', '/simple', class: 'grey-text', id: 'simple-link', style: 'display: none'
 
 - content_for :js do
-    = javascript_include_tag 'index'
+    = javascript_include_tag 'simple'
