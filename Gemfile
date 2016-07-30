@@ -15,5 +15,12 @@ gem 'retryable'
 gem 'puma'
 
 gem 'slim'
+gem 'sprockets'
+#gem 'sinatra-asset-pipeline', github: 'toroidal-code/sinatra-asset-pipeline', branch: 'master'
+gem 'sprockets-helpers'
+gem 'uglifier'
+gem 'sass'
 gem 'oj'
 gem 'oj_mimic_json'
+
+gem 'rake'
