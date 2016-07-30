@@ -1,5 +1,6 @@
 require 'puma'
 require 'rake/sprocketstask'
+require 'sinatra/asset_pipeline/task'
 require_relative 'app'
 require_relative 'misc/configuration'
 
@@ -36,18 +37,6 @@ namespace :puma do
   end
 end
 
-namespace :assets do
-  desc 'Precompile assets'
-  task :precompile do
-    environment = Application.settings.sprockets
-    manifest = Sprockets::Manifest.new(environment.index, File.join(Application.settings.assets_path, 'manifesto.json'))
-    manifest.compile(Application.settings.assets_precompile)
-  end
-
-  desc 'Clean assets'
-  task :clean do
-    FileUtils.rm_rf(Application.assets_path)
-  end
-end
+Sinatra::AssetPipeline::Task.define! Application
 
 task default: ['puma:start']

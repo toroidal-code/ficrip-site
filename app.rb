@@ -15,10 +15,7 @@ require 'concurrent/array'
 require 'concurrent/map'
 
 # Extras
-require 'sprockets'
-#require 'sinatra/asset_pipeline'
-require 'sprockets-helpers'
-require 'sinatra/sprockets/helpers'
+require 'sinatra/asset_pipeline'
 require 'rufus-scheduler'
 require 'oj_mimic_json'
 require 'retryable'
@@ -97,8 +94,6 @@ end
 class Application < Sinatra::Base
   register Padrino::Helpers
 
-  register Sinatra::Sprockets::Helpers
-
   configure do
     enable :sessions
     enable :protection
@@ -106,33 +101,21 @@ class Application < Sinatra::Base
     set protect_from_csrf: true # enable authenticity_token in forms
     set server: :puma
     use Rack::Protection, except: :http_origin
-    set sprockets: (Sprockets::Environment.new(root) { |env| env.logger = Logger.new(STDOUT) })
-    set assets_prefix: ['assets']
-    set digest_assets: true
-    set assets_path: -> { File.join(public_folder, 'assets') }
-    set assets_precompile: %w(application.js application.css *.png *.jpg *.svg *.eot *.ttf *.woff *.woff2)
-    set static_cache_control: [:public, max_age: 60 * 60 * 24 * 365]
+    set padrino_ath: Class.new { include Padrino::Helpers::AssetTagHelpers }.new
+    set sprockets: (Sprockets::Environment.new(root) { |env|
+      env.logger = Logger.new(STDOUT) # if development?
+    })
+    set assets_js_compressor: :uglifier
+    set assets_css_compressor: :sass
 
     use Rack::Protection, except: :http_origin
-
-    ASSET_FOLDERS.merge! js: 'assets', css: 'assets'
-    sprockets.append_path File.join(root, 'assets', 'stylesheets')
-    sprockets.append_path File.join(root, 'assets', 'javascripts')
-    sprockets.append_path File.join(root, 'assets', 'images')
-    sprockets.append_path File.join(root, 'assets', 'fonts')
-
-    sprockets.cache = Sprockets::Cache::MemoryStore.new 1000 # FileStore.new './tmp'
-
-    configure_sprockets_helpers do |config|
-      config.debug       = true #development?
-      config.digest      = false
-      config.manifest    = Sprockets::Manifest.new(sprockets, File.join(assets_path, 'manifesto.json')) # if production?
-    end
-  end
-
-  configure :production do
-    sprockets.js_compressor  = :uglify
-    sprockets.css_compressor  = :scss
+    register Sinatra::AssetPipeline
+    settings.sprockets.cache =
+      if development?
+        Sprockets::Cache::MemoryStore.new 1000
+      else
+        Sprockets::Cache::FileStore.new './tmp'
+      end
   end
 
   # The source-to-source transformations to switch themes
