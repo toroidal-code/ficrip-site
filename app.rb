@@ -15,12 +15,17 @@ require 'concurrent/array'
 require 'concurrent/map'
 
 # Extras
+require 'sinatra/asset_pipeline'
 require 'rufus-scheduler'
 require 'oj_mimic_json'
 require 'retryable'
+require 'uglifier'
+require 'sass'
 
 # Stdlib
 require 'open-uri'
+
+require_relative 'lib/event_receiver'
 
 # Global settings
 Slim::Engine.disable_option_validator!
@@ -74,59 +79,6 @@ end
 # tempfiles that haven't already been GC'ed
 Rufus::Scheduler.s.every('20m') { cleanup_old_files }
 
-# This is a simple little helper
-# module for properly formatting
-# Server-Sent Event messages
-class EventReceiver
-  attr_reader :stream
-
-  # Start with the event stream
-  def initialize(stream)
-    @stream = stream
-  end
-
-  # Set the event name buffer to ev and maybe send data
-  def event(ev, obj = nil)
-    @stream << "event: #{ev}\n"
-    data(obj) unless obj.nil?
-    self
-  end
-
-  # Append obj to the data buffer
-  def data(obj)
-    @stream << "data: #{obj}\n"
-    self
-  end
-
-  # Set the event stream's last event ID
-  def id(val)
-    @stream << "id: #{val}\n"
-    self
-  end
-
-  # Set the event stream's reconnection time
-  def retry(num)
-    @stream << "retry: #{num}\n"
-    self
-  end
-
-  # Dispatch the event
-  def fire!
-    @stream << "\n"
-    self
-  end
-
-  # Construct an event and dispatch it
-  def fire_event(ev, obj = true)
-    event(ev, obj).fire!
-  end
-
-  # Construct a message and dispatch it
-  def send_message(*args)
-    data(*args).fire!
-  end
-end
-
 class Object
   def randomly
     [true, false].sample ? yield(self) : self
@@ -149,6 +101,20 @@ class Application < Sinatra::Base
     set protect_from_csrf: true # enable authenticity_token in forms
     set server: :puma
     use Rack::Protection, except: :http_origin
+    set padrino_ath: Class.new { include Padrino::Helpers::AssetTagHelpers }.new
+    set sprockets: (Sprockets::Environment.new(root) { |env| env.logger = Logger.new(STDOUT) })
+    set assets_precompile: %w(app.js app.css *.js *.eot *.ttf *.woff *.woff2)
+    set assets_js_compressor: :uglifier
+    set assets_css_compressor: :sass
+
+    use Rack::Protection, except: :http_origin
+    register Sinatra::AssetPipeline
+    settings.sprockets.cache =
+      if development?
+        Sprockets::Cache::MemoryStore.new 1000
+      else
+        Sprockets::Cache::FileStore.new './tmp'
+      end
   end
 
   # The source-to-source transformations to switch themes
@@ -191,7 +157,7 @@ class Application < Sinatra::Base
   # The index page
   ['/', '/simple/?'].each do |path|
     get(path) do
-      render('index', layout: :main).randomly(&switch_themes)
+      render('simple', layout: :main).randomly(&switch_themes)
     end
   end
 
@@ -202,12 +168,12 @@ class Application < Sinatra::Base
 
   # Light theme
   get '/light/?' do
-    render 'index', layout: :main
+    render 'simple', layout: :main
   end
 
   # Dark theme
   get '/dark/?' do
-    render('index', layout: :main).with(&switch_themes)
+    render('simple', layout: :main).with(&switch_themes)
   end
 
   # About page

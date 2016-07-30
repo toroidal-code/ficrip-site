@@ -1,6 +1,5 @@
 <% content_for :stylesheets do %>
   <style>
-    .container { margin: auto; }
     #imglink { padding-top: 40px; }
     footer.page-footer { margin-top: unset; padding-top: unset; }
   </style>
@@ -8,7 +7,7 @@
 <div class="center">
   <div id="imglink"  class="row">
     <a href="/">
-      <img height="125px" src="<%= image_path 'black_enso.svg' %>" />
+      <img height="125px" src="<%= settings.padrino_ath.image_path 'black_enso.svg' %>" />
     </a>
   </div>
   <div class="row">

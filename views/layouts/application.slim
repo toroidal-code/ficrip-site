@@ -13,8 +13,7 @@ html
     meta name="viewport" content="width=device-width, initial-scale=1.0"
 
     / External Stylesheets
-    = stylesheet_link_tag 'https://cdnjs.cloudflare.com/ajax/libs/material-design-iconic-font/2.2.0/css/material-design-iconic-font.min.css'
-    = stylesheet_link_tag 'https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.6/css/materialize.min.css', media: 'screen,projection'
+    = stylesheet_tag 'app', media: 'screen,projection'
 
     / Internal styles
     css:
@@ -24,9 +23,10 @@ html
         display: flex;
         flex-direction: column;
       }
-      main { height: 75%; }
-      .bottom-spacer { flex: 1; }
+      main { flex: 9 0 auto; }
+      .bottom-spacer { flex: 1 0 auto; }
       a { color: black; }
+      button > svg { fill: white; padding: 0; margin: 0; height: inherit }
 
     / Partial's extra styles
     - if content_for? :stylesheets
@@ -54,8 +54,7 @@ html
             == yield_content(:footer_items) if content_for(:footer_items)
 
     / External javascript
-    = javascript_include_tag 'https://code.jquery.com/jquery-2.2.4.min.js'
-    = javascript_include_tag 'https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.6/js/materialize.min.js'
+    = javascript_tag 'app'
 
     / Internal extra javascript
     == yield_content(:js) if content_for? :js
