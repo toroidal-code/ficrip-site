@@ -102,9 +102,8 @@ class Application < Sinatra::Base
     set server: :puma
     use Rack::Protection, except: :http_origin
     set padrino_ath: Class.new { include Padrino::Helpers::AssetTagHelpers }.new
-    set sprockets: (Sprockets::Environment.new(root) { |env|
-      env.logger = Logger.new(STDOUT) # if development?
-    })
+    set sprockets: (Sprockets::Environment.new(root) { |env| env.logger = Logger.new(STDOUT) })
+    set assets_precompile: %w(app.js app.css *.js *.eot *.ttf *.woff *.woff2)
     set assets_js_compressor: :uglifier
     set assets_css_compressor: :sass
 
