@@ -38,7 +38,7 @@ $(document).ready(function () {
   // Add a back button when download is complete
   es.addEventListener('backbutton', function () {
     $('#footeritem').fadeOut(1000, function () {
-      $('#footeritem').replaceWith('<a href="/" class="grey-text">back</a>" }');
+      $('#footeritem').replaceWith('<a href="/" class="grey-text">back</a>');
       $('#footeritem').fadeIn(1000);
     });
   });
