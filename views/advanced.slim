@@ -13,6 +13,14 @@
         = select_tag :epub_version, options: [['EPUB2', 2], ['EPUB3', 3]]
         label EPUB version
     .row
+
+      / Choose between a URL and uploading a file for the cover
+      .input-field.col.s3.m2.l1
+        select#source-selector.black-text onchange='swapCoverField(this)' title="url_or_upload"
+          option[value='URL'] URL
+          option[value='Upload'] Upload
+        label Cover source
+
       / Input a cover URL
       #cover-url-field.input-field.col.s9.m8.l9
         = url_field_tag :cover_url, placeholder: 'Cover URL (Optional)', class: 'col s12 black-text'
@@ -25,12 +33,6 @@
         .file-path-wrapper
           input placeholder='Upload cover file' class='file-path validate' type='text'
 
-      / Choose between a URL and uploading a file for the cover
-      .input-field.col.s3.m2.l1
-        select#source-selector.black-text onchange='swapCoverField(this)' title="url_or_upload"
-          option[value='URL'] URL
-          option[value='Upload'] Upload
-        label Cover source
       .input-field.col.s12.m2.l2
         button.btn-large.tooltipped.waves-effect.waves-light.col.s12.black.white-text data-delay='50' data-position='bottom' data-tooltip='Download EPUB'
           / see 'cloud-download.svg' in assets/images for original source

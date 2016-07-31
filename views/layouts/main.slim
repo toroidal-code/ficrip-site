@@ -15,7 +15,13 @@
 - content_for :content do
   h1
     strong
-      span#title= link_to 'ficrip', 'https://github.com/toroidal-code/ficrip'
+      span#title
+        a href="https://github.com/toroidal-code/ficrip"
+          | ficrip
+          / sup
+          /   small
+          /     small
+          /       small.black-text< beta
   h5.thin.black-text
     span#subtitle n. an opinionated fanfiction.net downloader
   == content_for?(:page_content) ? yield_content(:page_content) : yield
