@@ -1,6 +1,6 @@
 # Ficrip
 
-This project is a web frontend for [ficrip](toroidal-code/ficrip)
+This project is a web frontend for [ficrip](https://github.com/toroidal-code/ficrip)
 
 It provides feature-complete API integration with the backend gem, allowing everything from
 simple downloads to complex processing with custom cover images and choosing the
