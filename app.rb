@@ -73,6 +73,7 @@ def cleanup_old_files
       $files.delete uuid
     end
   end
+  GC.start
 end
 
 # Every twenty minutes, clean up the leftover
@@ -313,6 +314,7 @@ class Application < Sinatra::Base
       er.fire_event :url, "/file?#{query}"  # And give the client the file link
     ensure
       er.fire_event :close                  # Close the EventSource
+      out.close
     end; end
   end
 
