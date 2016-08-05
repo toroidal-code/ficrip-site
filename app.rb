@@ -77,7 +77,7 @@ end
 
 # Every twenty minutes, clean up the leftover
 # tempfiles that haven't already been GC'ed
-Rufus::Scheduler.s.every('20m') { cleanup_old_files }
+Rufus::Scheduler.s.every('2m') { cleanup_old_files }
 
 class Object
   def randomly
