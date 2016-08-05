@@ -149,7 +149,7 @@ class Application < Sinatra::Base
       h[:generic] = generic
     end
 
-    status code unless code.nil? || generic
+    (code.nil? || generic) ? status 200 : status code
     page = render(:error, locals: locals).randomly { |p| switch_themes p }
     halt && !code.nil? ? halt(code, page) : page
   end
