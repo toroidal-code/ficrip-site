@@ -1,5 +1,5 @@
 workers 0 # Single mode
-threads_count = Integer(ENV['RAILS_MAX_THREADS'] || 16)
+threads_count = Integer(ENV['RAILS_MAX_THREADS'] || 8)
 threads threads_count, threads_count
 
 preload_app!
