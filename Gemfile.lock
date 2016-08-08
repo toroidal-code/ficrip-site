@@ -1,6 +1,6 @@
 GIT
   remote: git://github.com/toroidal-code/ficrip.git
-  revision: 39add2d82e8fd7b552f9821c8b14867870414e75
+  revision: 26907ff8abf244f43b355c99e2c1a5471fa8d3a5
   branch: master
   specs:
     ficrip (0.0.2)
