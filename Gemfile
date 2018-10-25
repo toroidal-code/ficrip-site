@@ -1,6 +1,6 @@
 source 'https://rubygems.org'
 
-ruby "2.3.1"
+ruby "2.4.4"
 
 gem 'sinatra', '~> 1.4.7', require: false
 gem 'padrino-helpers', '~> 0.13'
@@ -13,7 +13,7 @@ gem 'concurrent-ruby-ext'
 gem 'rufus-scheduler', '~> 3.2'
 gem 'retryable'
 
-gem 'puma'
+gem 'puma', '~> 3.12'
 
 gem 'slim'
 gem 'sinatra-asset-pipeline', {
