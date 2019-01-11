@@ -6,7 +6,7 @@ gem 'sinatra', '~> 1.4.7', require: false
 gem 'padrino-helpers', '~> 0.13'
 gem 'activesupport', '~> 5.0', require: false
 
-gem 'ficrip', github: 'toroidal-code/ficrip', branch: 'master'
+gem 'ficrip', github: 'toroidal-code/ficrip', branch: 'proxy'
 
 gem 'concurrent-ruby', '~> 1.0.2', require: false
 gem 'concurrent-ruby-ext'
