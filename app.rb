@@ -105,6 +105,12 @@ class Application < Sinatra::Base
     set padrino_ath: Class.new { include Padrino::Helpers::AssetTagHelpers }.new
     set sprockets: (Sprockets::Environment.new(root) { |env| env.logger = Logger.new(STDOUT) })
     set assets_precompile: %w(app.js app.css *.js *.eot *.ttf *.woff *.woff2)
+    sprockets.append_path File.join(root, 'assets', 'javascripts')
+    sprockets.append_path File.join(root, 'assets', 'stylesheets')
+    sprockets.append_path File.join(root, 'vendor', 'assets', 'javascripts')
+    sprockets.append_path File.join(root, 'vendor', 'assets', 'stylesheets')
+    sprockets.append_path File.join(root, 'vendor', 'assets', 'fonts')
+
     set assets_js_compressor: :uglifier
     set assets_css_compressor: :sass
 
@@ -116,6 +122,8 @@ class Application < Sinatra::Base
       else
         Sprockets::Cache::FileStore.new './tmp'
       end
+
+    Ficrip.set_solverr(8191)
   end
 
   # The source-to-source transformations to switch themes
@@ -241,6 +249,7 @@ class Application < Sinatra::Base
   get '/generate', provides: 'text/event-stream' do
     stream do |out| begin
       er = EventReceiver.new out
+      Ficrip.solverr.open!
 
       # Get the cover
       cover = if params[:cover_uuid] && !params[:cover_uuid].empty?
@@ -273,7 +282,7 @@ class Application < Sinatra::Base
 
       # Update the download page with title/author information
       er.fire_event :info, { title:  link_to(fic.title, fic.url, target: '_blank'),
-                             author: link_to(fic.author, fic.author_url, target: '_blank') }.to_json
+                             author: link_to(fic.author, fic.author_url.to_s, target: '_blank') }.to_json
 
       epub_version = Integer params[:epub_version] rescue 2
       epub_version = 2 unless [2,3].include? epub_version
@@ -282,7 +291,7 @@ class Application < Sinatra::Base
       epub = fic.bind version: epub_version , cover: cover, callback: -> (fetched, total) do
         percent = (fetched / total.to_f) * 100
         er.fire_event :progress, "#{percent.to_i}%"
-        sleep 0.5 # poor man's rate limiter
+        sleep 0.1 # poor man's rate limiter
       end
 
       filename = "#{fic.author} - #{fic.title}.epub"
@@ -313,6 +322,7 @@ class Application < Sinatra::Base
       er.fire_event :progress, '100%'       # We're done, so set progress to 100%
       er.fire_event :url, "/file?#{query}"  # And give the client the file link
     ensure
+      Ficrip.solverr.close!
       er.fire_event :close                  # Close the EventSource
       out.close
     end; end
