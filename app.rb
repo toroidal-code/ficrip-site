@@ -123,7 +123,7 @@ class Application < Sinatra::Base
         Sprockets::Cache::FileStore.new './tmp'
       end
 
-    Ficrip.set_solverr(8191)
+    Ficrip.set_solverr("flaresolverr", 8191)
   end
 
   # The source-to-source transformations to switch themes

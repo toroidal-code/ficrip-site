@@ -1,6 +1,6 @@
 GIT
   remote: https://github.com/toroidal-code/ficrip.git
-  revision: a16366445b629786fd429eb8cb18f05b73b28a58
+  revision: 62dfb60b8a0b52b0a05bf7c7896c464d5a049fe4
   branch: master
   specs:
     ficrip (0.0.2)
@@ -19,21 +19,19 @@ GIT
 GEM
   remote: https://rubygems.org/
   specs:
-    activesupport (5.2.4.5)
+    activesupport (6.1.3)
       concurrent-ruby (~> 1.0, >= 1.0.2)
-      i18n (>= 0.7, < 2)
-      minitest (~> 5.1)
-      tzinfo (~> 1.1)
+      i18n (>= 1.6, < 2)
+      minitest (>= 5.1)
+      tzinfo (~> 2.0)
+      zeitwerk (~> 2.3)
     chronic_duration (0.10.6)
       numerizer (~> 0.1.1)
-    coderay (1.1.3)
     coffee-script (2.4.1)
       coffee-script-source
       execjs
     coffee-script-source (1.12.2)
     concurrent-ruby (1.1.8)
-    concurrent-ruby-ext (1.1.8)
-      concurrent-ruby (= 1.1.8)
     contracts (0.16.0)
     et-orbi (1.2.4)
       tzinfo
@@ -49,10 +47,12 @@ GEM
     i18n (1.8.9)
       concurrent-ruby (~> 1.0)
     i18n_data (0.13.0)
-    method_source (1.0.0)
+    libv8 (3.16.14.19)
     mimemagic (0.3.5)
     mini_portile2 (2.1.0)
     minitest (5.14.3)
+    mustermann (1.1.1)
+      ruby2_keywords (~> 0.0.1)
     nio4r (2.5.5)
     nokogiri (1.6.8.1)
       mini_portile2 (~> 2.1.0)
@@ -64,21 +64,20 @@ GEM
       padrino-support (= 0.15.0)
       tilt (>= 1.4.1, < 3)
     padrino-support (0.15.0)
-    pry (0.14.0)
-      coderay (~> 1.1)
-      method_source (~> 1.0)
-    puma (4.3.7)
+    puma (5.2.1)
       nio4r (~> 2.0)
     raabro (1.4.0)
-    rack (1.6.13)
-    rack-protection (1.5.5)
+    rack (2.2.3)
+    rack-protection (2.1.0)
       rack
     rake (13.0.3)
     rb-fsevent (0.10.4)
     rb-inotify (0.10.1)
       ffi (~> 1.0)
+    ref (2.0.0)
     retryable (3.0.5)
     ruby-progressbar (1.11.0)
+    ruby2_keywords (0.0.4)
     rubyzip (2.3.0)
     rufus-scheduler (3.7.0)
       fugit (~> 1.1, >= 1.1.6)
@@ -87,10 +86,11 @@ GEM
     sass-listen (4.0.0)
       rb-fsevent (~> 0.9, >= 0.9.4)
       rb-inotify (~> 0.9, >= 0.9.7)
-    sinatra (1.4.8)
-      rack (~> 1.5)
-      rack-protection (~> 1.4)
-      tilt (>= 1.3, < 3)
+    sinatra (2.1.0)
+      mustermann (~> 1.0)
+      rack (~> 2.2)
+      rack-protection (= 2.1.0)
+      tilt (~> 2.0)
     sinatra-asset-pipeline (0.5.0)
       coffee-script
       rake
@@ -111,33 +111,34 @@ GEM
     sprockets-sass (2.0.0.beta2)
       sprockets (>= 2.0, < 4.0)
     temple (0.8.2)
-    thread_safe (0.3.6)
+    therubyracer (0.12.3)
+      libv8 (~> 3.16.14.15)
+      ref
     tilt (2.0.10)
-    tzinfo (1.2.9)
-      thread_safe (~> 0.1)
+    tzinfo (2.0.4)
+      concurrent-ruby (~> 1.0)
     uglifier (4.2.0)
       execjs (>= 0.3.0, < 3)
+    zeitwerk (2.4.2)
 
 PLATFORMS
   ruby
 
 DEPENDENCIES
-  activesupport (~> 5.2)
-  concurrent-ruby (~> 1.1.0)
-  concurrent-ruby-ext
+  activesupport (~> 6)
   ficrip!
   oj
   oj_mimic_json
   padrino-helpers (~> 0.13)
-  pry
-  puma (~> 4)
+  puma
   rake
   retryable
   rufus-scheduler (~> 3.7)
   sass
-  sinatra (= 1.4.8)
+  sinatra (= 2.1)
   sinatra-asset-pipeline
   slim
+  therubyracer
   uglifier
 
 RUBY VERSION
