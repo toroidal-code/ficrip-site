@@ -2,7 +2,7 @@ source 'https://rubygems.org'
 
 ruby "3.0.0"
 
-gem 'sinatra', '2.1', require: false
+gem 'sinatra', '2.2.3', require: false
 gem 'padrino-helpers', '~> 0.13'
 gem 'activesupport', '~> 6', require: false
 
